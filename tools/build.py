@@ -1,10 +1,17 @@
-"""Static site generator for credsey.com — run: python tools/build.py"""
-import json, os, html
+"""Static site generator for credsey.com.
+
+Every editable piece of copy is tagged with data-cms="<key>" and registered in SCHEMA.
+The Worker swaps in values saved from the admin portal at request time, so the static
+HTML here is both the default content and the fallback if the content store is empty.
+Run the whole build with: python tools/pages.py
+"""
+import json, html, re
 from pathlib import Path
 from data import *
 
 ROOT = Path(__file__).resolve().parent.parent / "site"
-VER = "6"
+WORKER = Path(__file__).resolve().parent.parent / "worker"
+VER = "7"
 esc = html.escape
 
 ICONS = {
@@ -37,10 +44,10 @@ ICONS = {
  "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
  "chat": '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
  "trend": '<path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/>',
- "home2": '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
  "instagram": '<rect width="20" height="20" x="2" y="2" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><path d="M17.5 6.5h.01"/>',
  "facebook": '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
  "linkedin": '<path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/>',
+ "youtube": '<path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/>',
 }
 WA_PATH = '<path d="M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 7L3 29l6.4-2c2 1.1 4.3 1.7 6.6 1.7 7.2 0 13-5.7 13-12.8S23.2 3 16 3zm0 23.4c-2.1 0-4.1-.6-5.9-1.7l-.4-.3-3.8 1.2 1.2-3.7-.3-.4a10.4 10.4 0 0 1-1.6-5.6C5.2 9.9 10 5.2 16 5.2s10.8 4.7 10.8 10.6S22 26.4 16 26.4zm5.9-7.9c-.3-.2-1.9-.9-2.2-1s-.5-.2-.7.2-.8 1-1 1.2-.4.2-.7.1a8.8 8.8 0 0 1-4.4-3.8c-.3-.6.3-.5.9-1.7.1-.2 0-.4 0-.6l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4s-1.2 1.1-1.2 2.7 1.2 3.1 1.4 3.4c.2.2 2.4 3.6 5.8 5 2.1.9 3 1 4 .8.7-.1 1.9-.8 2.2-1.5s.3-1.4.2-1.5c-.1-.2-.3-.3-.6-.4z"/>'
 
@@ -49,7 +56,55 @@ SPRITE = '<svg width="0" height="0" style="position:absolute" aria-hidden="true"
     f'<symbol id="i-{k}" viewBox="0 0 24 24">{v}</symbol>' for k, v in ICONS.items()) + "</svg>"
 P = {p["slug"]: p for p in PRODUCTS}
 LOANS = [p for p in PRODUCTS if p["slug"] != "credit-cards"]
-WA_LINK = f"https://wa.me/{WHATSAPP}?text=" + "Hi%20Credsey%2C%20I%27d%20like%20help%20with%20a%20loan."
+WA_TEXT = "Hi%20Credsey%2C%20I%27d%20like%20help%20with%20a%20loan."
+WA_LINK = f"https://wa.me/{WHATSAPP}?text={WA_TEXT}"
+
+# ---------- content registry ----------
+SCHEMA = {}   # key -> {key, label, group, kind, default, hl}
+
+def reg(key, default, label, group, kind="text", hl=None, help=None):
+    if key not in SCHEMA:
+        SCHEMA[key] = {"key": key, "label": label, "group": group, "kind": kind, "default": default, **({"hl": hl} if hl else {}), **({"help": help} if help else {})}
+    return key
+
+def hl_html(text, cls):
+    """*word* in editable copy becomes a highlighted span."""
+    return re.sub(r"\*(.+?)\*", lambda m: f'<span class="{cls}">{m.group(1)}</span>', esc(text))
+
+def T(tag, key, default, label, group, cls="", attrs="", hl=None, kind="text"):
+    """Editable element: <tag data-cms=key>default</tag>."""
+    reg(key, default, label, group, kind, hl)
+    inner = hl_html(default, hl) if hl else (default if kind == "html" else esc(default))
+    hla = f' data-cms-hl="{hl}"' if hl else ""
+    return f'<{tag}{f" class=\"{cls}\"" if cls else ""}{hla} data-cms="{key}"{" " + attrs if attrs else ""}>{inner}</{tag}>'
+
+def li_items(items, kind):
+    icon = {"check": "check", "file": "file"}.get(kind)
+    return "".join(f'<li>{ico(icon) if icon else ""}{esc(x)}</li>' for x in items)
+
+def L(tag, key, items, label, group, kind="check", cls="", attrs="", limit=None):
+    """Editable list (one item per line in the admin)."""
+    reg(key, list(items), label, group, "list:" + kind, help="One item per line")
+    shown = items[:limit] if limit else items
+    lim = f' data-cms-limit="{limit}"' if limit else ""
+    return f'<{tag}{f" class=\"{cls}\"" if cls else ""} data-cms="{key}"{lim}{" " + attrs if attrs else ""}>{li_items(shown, kind)}</{tag}>'
+
+def faq_html(faqs):
+    return "".join(f'<details><summary>{esc(q)}{ico("plus")}</summary><div><p>{esc(a)}</p></div></details>' for q, a in faqs)
+
+def S(key):
+    return f' data-cms-show="{key}"'
+
+# settings (contact details) — shown/hidden and linked by the Worker
+reg("settings.phone", PHONE, "Phone number (display)", "Contact details", help="Shown in header, footer and call buttons, e.g. +91 88818 52331")
+reg("settings.whatsapp", WHATSAPP, "WhatsApp number", "Contact details", help="Digits with country code, e.g. 918881852331")
+reg("settings.email", EMAIL, "Email", "Contact details")
+reg("settings.address", ADDRESS, "Office address", "Contact details")
+reg("settings.hours", HOURS, "Working hours", "Contact details")
+for k in ("instagram", "facebook", "linkedin", "youtube"):
+    reg(f"settings.{k}", SOCIAL.get(k, ""), f"{k.title()} URL", "Social links")
+
+def tel_href(): return f"tel:{PHONE_HREF}"
 
 def org_schema():
     return {"@context": "https://schema.org", "@type": "FinancialService", "@id": SITE + "/#org", "name": BRAND,
@@ -66,7 +121,10 @@ def crumbs_schema(trail):
     return {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
         {"@type": "ListItem", "position": i + 1, "name": n, "item": SITE + u} for i, (n, u) in enumerate(trail)]}
 
-def header(active=""):
+def phone_link(cls, inner):
+    return f'<a class="{cls}" href="{tel_href()}" data-cms-href="tel"{S("settings.phone")}>{inner}</a>'
+
+def header():
     loans = "".join(f'<a href="/{p["slug"]}/">{ico(p["icon"])}<span><b>{p["name"]}</b><small>{esc(p["lead"].split(".")[0].split("—")[0][:62])}</small></span></a>' for p in LOANS)
     calcs = "".join(f'<a href="{u}">{ico(i)}<span><b>{n}</b><small>{s}</small></span></a>' for u, i, n, s in [
         ("/emi-calculator/", "calc", "EMI Calculator", "EMI, interest and full repayment schedule"),
@@ -85,63 +143,81 @@ def header(active=""):
 <li><a class="nav-link" href="/blog/">Guides</a></li>
 <li><a class="nav-link" href="/about/">About</a></li>
 </ul></nav>
-<div class="hdr-cta">{f'<a class="hdr-phone" href="tel:{PHONE_HREF}">{ico("phone")}{PHONE}</a>' if PHONE else ""}<a class="btn btn-gold btn-sm" href="/apply/">Apply now</a></div>
+<div class="hdr-cta">{phone_link("hdr-phone", ico("phone") + f'<span data-cms="settings.phone">{esc(PHONE)}</span>')}<a class="btn btn-gold btn-sm" href="/apply/">Apply now</a></div>
 <button class="burger" aria-label="Menu" aria-expanded="false" aria-controls="nav">{ico("menu")}</button>
 </div></header>'''
 
 def footer():
+    G = "Footer & call-to-action"
     col = lambda items: "".join(f'<li><a href="{u}">{n}</a></li>' for n, u in items)
-    soc = "".join(f'<a href="{u}" aria-label="Credsey on {k.title()}" rel="noopener" target="_blank">{ico(k)}</a>' for k, u in SOCIAL.items() if u)
+    soc = "".join(f'<a href="{SOCIAL.get(k) or "#"}" data-cms-href="url" data-cms-key="settings.{k}"{S("settings." + k)} aria-label="Credsey on {k.title()}" rel="noopener" target="_blank">{ico(k)}</a>' for k in ("instagram", "facebook", "linkedin", "youtube"))
+    wa_btn = f'<a class="btn btn-wa" href="{WA_LINK}" data-cms-href="wa"{S("settings.whatsapp")} rel="noopener" target="_blank">Chat on WhatsApp</a>'
     return f'''<section class="wrap" aria-label="Get started"><div class="cta-band rv">
-<div><h2>Ready to take the next step?</h2><p>Speak to a Credsey advisor — free, no obligation, no impact on your credit score.</p></div>
-<div class="btns"><a class="btn btn-dark" href="/apply/">Check eligibility {ico("arrow")}</a>{f'<a class="btn btn-wa" href="{WA_LINK}" rel="noopener" target="_blank">Chat on WhatsApp</a>' if WHATSAPP else f'<a class="btn btn-wa" href="/contact/">Request a callback</a>'}</div>
+<div>{T("h2", "cta.title", "Ready to take the next step?", "CTA band heading", G)}{T("p", "cta.lead", "Speak to a Credsey advisor — free, no obligation, no impact on your credit score.", "CTA band text", G)}</div>
+<div class="btns"><a class="btn btn-dark" href="/apply/">Check eligibility {ico("arrow")}</a>{wa_btn}</div>
 </div></section>
 <footer class="ftr"><div class="wrap">
 <div class="ftr-grid">
-<div class="ftr-brand"><img src="/img/credsey-logo-white.png" alt="{BRAND}" width="900" height="448" loading="lazy"><p>Credsey helps individuals and businesses across India find, compare and secure the right loan — with honest advice from application to disbursal.</p><div class="social">{soc}</div></div>
+<div class="ftr-brand"><img src="/img/credsey-logo-white.png" alt="{BRAND}" width="900" height="448" loading="lazy">{T("p", "footer.about", "Credsey helps individuals and businesses across India find, compare and secure the right loan — with honest advice from application to disbursal.", "Footer about text", G)}<div class="social">{soc}</div></div>
 <div><h4>Loans</h4><ul>{col([(p["name"], "/" + p["slug"] + "/") for p in LOANS[:6]])}</ul></div>
 <div><h4>More</h4><ul>{col([("Education Loan", "/education-loan/"), ("Balance Transfer", "/balance-transfer/"), ("Credit Cards", "/credit-cards/"), ("Credit Score", "/credit-score/"), ("EMI Calculator", "/emi-calculator/"), ("All Calculators", "/calculators/")])}</ul></div>
 <div><h4>Company</h4><ul>{col([("About us", "/about/"), ("Guides", "/blog/"), ("Contact", "/contact/"), ("Grievance redressal", "/grievance-redressal/"), ("Privacy policy", "/privacy-policy/"), ("Terms of use", "/terms/")])}</ul></div>
 <div><h4>Talk to us</h4><ul class="contact">
-{f'<li>{ico("phone")}<a href="tel:{PHONE_HREF}">{PHONE}</a></li>' if PHONE else ""}
-{f'<li>{ico("mail")}<a href="mailto:{EMAIL}">{EMAIL}</a></li>' if EMAIL else ""}
-<li>{ico("pin")}<span>{ADDRESS}</span></li>
-<li>{ico("chat")}<a href="/contact/">Request a callback</a></li>
-<li>{ico("clock")}<span>{HOURS}</span></li></ul></div>
+<li{S("settings.phone")}>{ico("phone")}<a href="{tel_href()}" data-cms-href="tel" data-cms="settings.phone">{esc(PHONE)}</a></li>
+<li{S("settings.email")}{" hidden" if not EMAIL else ""}>{ico("mail")}<a href="mailto:{EMAIL}" data-cms-href="mailto" data-cms="settings.email">{esc(EMAIL)}</a></li>
+<li{S("settings.address")}>{ico("pin")}<span data-cms="settings.address">{esc(ADDRESS)}</span></li>
+<li{S("settings.hours")}>{ico("clock")}<span data-cms="settings.hours">{esc(HOURS)}</span></li>
+<li>{ico("chat")}<a href="/contact/">Request a callback</a></li></ul></div>
 </div>
-<p class="disclaimer">Credsey Financial Services is a loan facilitation and advisory service and does not lend money itself. Loans are sanctioned at the sole discretion of the partner bank or NBFC, subject to their credit policy, documentation and verification. Interest rates, fees and amounts shown are indicative (*) and vary by lender and applicant profile. Credsey never asks for any upfront fee to process or approve a loan — report any such request to us immediately. <a href="/disclaimer/">Read the full disclaimer</a>.</p>
+{T("p", "footer.disclaimer", "Credsey Financial Services is a loan facilitation and advisory service and does not lend money itself. Loans are sanctioned at the sole discretion of the partner bank or NBFC, subject to their credit policy, documentation and verification. Interest rates, fees and amounts shown are indicative (*) and vary by lender and applicant profile. Credsey never asks for any upfront fee to process or approve a loan — report any such request to us immediately.", "Footer disclaimer", G, cls="disclaimer")}
 <div class="ftr-bottom"><span>© <span data-year>2026</span> {BRAND}. All rights reserved.</span><nav aria-label="Legal"><a href="/privacy-policy/">Privacy</a><a href="/terms/">Terms</a><a href="/disclaimer/">Disclaimer</a><a href="/sitemap.xml">Sitemap</a></nav></div>
 </div></footer>
-{f'<a class="wa-float" href="{WA_LINK}" rel="noopener" target="_blank" aria-label="Chat with Credsey on WhatsApp"><svg viewBox="0 0 32 32" aria-hidden="true">{WA_PATH}</svg></a>' if WHATSAPP else ""}
-<div class="m-bar">{f'<a class="btn btn-line" href="tel:{PHONE_HREF}">{ico("phone")} Call</a>' if PHONE else f'<a class="btn btn-line" href="/emi-calculator/">{ico("calc")} EMI</a>'}<a class="btn btn-gold" href="/apply/">Apply now</a></div>'''
+<a class="wa-float" href="{WA_LINK}" data-cms-href="wa"{S("settings.whatsapp")} rel="noopener" target="_blank" aria-label="Chat with Credsey on WhatsApp"><svg viewBox="0 0 32 32" aria-hidden="true">{WA_PATH}</svg></a>
+<div class="m-bar">{phone_link("btn btn-line", ico("phone") + " Call")}<a class="btn btn-gold" href="/apply/">Apply now</a></div>'''
 
-def page(path, title, desc, body, schema=(), og_img="og-cover.jpg", active="", robots="index,follow"):
+def head(path, title, desc, schema, og_img, robots):
     url = SITE + path
-    ld = "".join(f'<script type="application/ld+json">{json.dumps(s, ensure_ascii=False)}</script>' for s in [org_schema(), *schema])
+    sk = "seo." + (path.strip("/") or "home")
     full = title if "Credsey" in title else f"{title} | Credsey"
-    doc = f'''<!doctype html>
-<html lang="en-IN" class="no-js"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{esc(full)}</title>
-<meta name="description" content="{esc(desc)}">
+    if robots.startswith("index") and "{{" not in title:
+        reg(sk + ".title", full, f"{path} — page title", "SEO", help="Shown in Google results and browser tabs (50–60 characters)")
+        reg(sk + ".desc", desc, f"{path} — meta description", "SEO", help="Shown under the title in Google (140–160 characters)")
+    ld = "".join(ld_tag(s) for s in [{**org_schema(), "_cms": "org"}, *schema])
+    tk = f' data-cms="{sk}.title"' if sk + ".title" in SCHEMA else ""
+    dk = f' data-cms="{sk}.desc" data-cms-attr="content"' if sk + ".desc" in SCHEMA else ""
+    return f'''<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title{tk}>{esc(full) if "{{" not in full else full}</title>
+<meta name="description" content="{esc(desc) if "{{" not in desc else desc}"{dk}>
 <link rel="canonical" href="{url}"><meta name="robots" content="{robots}">
 <meta name="theme-color" content="#071A3E">
 <meta property="og:type" content="website"><meta property="og:site_name" content="{BRAND}"><meta property="og:locale" content="en_IN">
-<meta property="og:title" content="{esc(full)}"><meta property="og:description" content="{esc(desc)}"><meta property="og:url" content="{url}">
-<meta property="og:image" content="{SITE}/img/{og_img}"><meta name="twitter:card" content="summary_large_image">
+<meta property="og:title" content="{esc(full) if "{{" not in full else full}"{f' data-cms="{sk}.title" data-cms-attr="content"' if tk else ""}><meta property="og:description" content="{esc(desc) if "{{" not in desc else desc}"{dk}><meta property="og:url" content="{url}">
+<meta property="og:image" content="{og_img if og_img.startswith(("http", "{{")) else SITE + "/img/" + og_img}"><meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/img/icon-192.png"><link rel="apple-touch-icon" href="/img/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="/assets/css/style.css?v={VER}">
-{ld}
+{ld}'''
+
+def ld_tag(s):
+    s = dict(s); cms = s.pop("_cms", None)
+    return f'<script type="application/ld+json"{f" data-cms-schema=\"{cms}\"" if cms else ""}>{json.dumps(s, ensure_ascii=False)}</script>'
+
+def render(path, title, desc, body, schema=(), og_img="og-cover.jpg", robots="index,follow"):
+    return f'''<!doctype html>
+<html lang="en-IN" class="no-js"><head>
+{head(path, title, desc, list(schema), og_img, robots)}
 </head><body>
-{header(active)}
+{header()}
 <main id="main">
 {body}
 </main>
 {footer()}
 <script src="/assets/js/main.js?v={VER}" defer></script>
 </body></html>'''
+
+def page(path, title, desc, body, schema=(), og_img="og-cover.jpg", robots="index,follow"):
+    doc = render(path, title, desc, body, schema, og_img, robots)
     out = ROOT / path.strip("/") / "index.html" if path.endswith("/") else ROOT / path.lstrip("/")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(doc, encoding="utf-8")
@@ -172,45 +248,70 @@ def calc_widget(kind="personal", tabs=True, heading="EMI calculator", amort=None
 <p class="calc-note">Indicative figures. Final rate depends on the lender and your profile.</p>
 </div>'''
 
-def faq_block(faqs, heading="Questions, answered", sub="Can't find what you're looking for? Our advisors are a call away."):
-    items = "".join(f'<details><summary>{esc(q)}{ico("plus")}</summary><div><p>{esc(a)}</p></div></details>' for q, a in faqs)
+def faq_block(key, group, faqs, heading="Questions, answered", sub="Can't find what you're looking for? Our advisors are a call away."):
+    reg(key, [{"q": q, "a": a} for q, a in faqs], "FAQs", group, "faq")
     return f'''<section class="sec" aria-labelledby="faq-h"><div class="wrap faq-grid">
 <div class="rv"><h2 id="faq-h">{heading}</h2><p>{sub}</p><a class="link-arrow" href="/contact/">Contact us {ico("arrow")}</a></div>
-<div class="faq rv">{items}</div></div></section>'''
+<div class="faq rv" data-cms="{key}">{faq_html(faqs)}</div></div></section>'''
+
+def faq_ld(key, faqs):
+    s = faq_schema(faqs); s["_cms"] = "faq:" + key; return s
 
 def swoosh():
     return '''<svg class="hero-swoosh" viewBox="0 0 1000 600" aria-hidden="true"><defs><linearGradient id="sg" x1="0" x2="1"><stop offset="0" stop-color="#E3BC6E" stop-opacity="0"/><stop offset=".55" stop-color="#E3BC6E" stop-opacity=".55"/><stop offset="1" stop-color="#C3913A" stop-opacity=".9"/></linearGradient><linearGradient id="sb" x1="0" x2="1"><stop offset="0" stop-color="#2A72D6" stop-opacity="0"/><stop offset="1" stop-color="#2A72D6" stop-opacity=".35"/></linearGradient></defs>
 <path d="M0 520 C 300 520 620 420 1000 80" fill="none" stroke="url(#sg)" stroke-width="3"/><path d="M0 560 C 340 560 650 460 1000 150" fill="none" stroke="url(#sg)" stroke-width="1.2" opacity=".6"/><path d="M80 600 C 400 590 700 480 1000 230 L1000 600Z" fill="url(#sb)"/></svg>'''
 
+def pg(p): return f'Product: {p["name"]}'
+
+def fact_spans(p, wrap="span"):
+    return "".join(f'<{wrap}>{T("b", f"product.{p["key"]}.fact{i}", v, f"Highlight {i} value", pg(p))}{T("span", f"product.{p["key"]}.fact{i}label", l, f"Highlight {i} label", pg(p))}</{wrap}>' for i, (v, l) in enumerate(p["facts"][:3], 1))
+
+def guide_card(a, big=False):
+    from datetime import date
+    dt = date.fromisoformat(a["date"]).strftime("%d %b %Y")
+    return f'''<a class="guide" href="/blog/{a["slug"]}/"><figure><img src="/img/{a["img"]}.webp" alt="" width="1400" height="933" loading="lazy"></figure>
+<div><span class="meta">{dt} · {a["mins"]} min read</span><h3>{a["title"]}</h3>{f'<p>{a["desc"]}</p>' if big else ""}</div></a>'''
+
 # ---------- HOME ----------
 def home():
+    G = "Home page"
     rail = "".join(f'<a href="/{p["slug"]}/">{ico(p["icon"])}{p["name"]}</a>' for p in PRODUCTS[:8]) + f'<a href="/credit-score/">{ico("gauge")}Credit Score</a>'
     ex_tabs, ex_panels = "", ""
     for i, p in enumerate(PRODUCTS[:7]):
         sel = "true" if i == 0 else "false"
-        ex_tabs += f'<button role="tab" type="button" id="t-{p["key"]}" aria-controls="p-{p["key"]}" aria-selected="{sel}" tabindex="{0 if i == 0 else -1}">{ico(p["icon"])}{p["name"]}</button>'
-        facts = "".join(f'<span><b>{v}</b>{l}</span>' for v, l in p["facts"][:3])
-        pts = "".join(f'<li>{ico("check")}{esc(x)}</li>' for x in p["points"][:3])
-        ex_panels += f'''<div class="ex-panel" role="tabpanel" id="p-{p["key"]}" aria-labelledby="t-{p["key"]}" {"" if i == 0 else "hidden"}>
-<div class="ex-media"><img src="/img/{p["img"]}.webp" alt="{p["name"]} with Credsey" width="1400" height="933" loading="lazy"><div class="rate">{facts}</div></div>
-<div class="ex-body"><h3>{p["h1"]}</h3><p>{p["lead"]}</p><ul class="checks">{pts}</ul>
-<div class="ex-actions"><a class="btn" href="/apply/?product={p["key"]}">Check eligibility {ico("arrow")}</a><a class="link-arrow" href="/{p["slug"]}/">About {p["name"].lower()}s {ico("arrow")}</a></div></div></div>'''
+        k = p["key"]
+        ex_tabs += f'<button role="tab" type="button" id="t-{k}" aria-controls="p-{k}" aria-selected="{sel}" tabindex="{0 if i == 0 else -1}">{ico(p["icon"])}{p["name"]}</button>'
+        ex_panels += f'''<div class="ex-panel" role="tabpanel" id="p-{k}" aria-labelledby="t-{k}" {"" if i == 0 else "hidden"}>
+<div class="ex-media"><img src="/img/{p["img"]}.webp" alt="{p["name"]} with Credsey" width="1400" height="933" loading="lazy"><div class="rate">{fact_spans(p)}</div></div>
+<div class="ex-body">{T("h3", f"product.{k}.h1", p["h1"], "Page heading", pg(p))}{T("p", f"product.{k}.lead", p["lead"], "Intro text", pg(p))}{L("ul", f"product.{k}.points", p["points"], "Key benefits", pg(p), cls="checks", limit=3)}
+<div class="ex-actions"><a class="btn" href="/apply/?product={k}">Check eligibility {ico("arrow")}</a><a class="link-arrow" href="/{p["slug"]}/">About {p["name"].lower()}s {ico("arrow")}</a></div></div></div>'''
     faqs = [("Is Credsey a bank or lender?", "No. Credsey is a loan advisory and facilitation service. We compare offers from partner banks and NBFCs, help you choose, and manage the paperwork until disbursal. The lender makes the final credit decision."),
             ("Do you charge anything to apply?", "Checking eligibility and speaking to an advisor are completely free. Lenders may charge a processing fee, which is always disclosed in your sanction letter. We never ask for upfront payments."),
             ("Will checking eligibility affect my credit score?", "No. Our eligibility check uses a soft enquiry, which is not visible to lenders and doesn't affect your score. A hard enquiry happens only when you formally apply with a lender."),
             ("How long does it take to get a loan?", "Personal and gold loans can be disbursed within 24 hours of approval. Home loans and loans against property usually take 7–15 working days because of the property checks."),
             ("Which documents will I need?", "Usually PAN, Aadhaar, income proof (salary slips or ITR) and recent bank statements. Your advisor will share an exact checklist for your loan."),
             ("Is my information safe with Credsey?", "Yes. Your data is encrypted in transit, shared only with the lenders you choose, and never sold. Read our privacy policy for details.")]
-    lenders = "".join(f"<span>{l}</span>" for l in LENDERS) * 2
+    reg("home.lenders", LENDERS, "Lender names (scrolling row)", G, "list:lender", help="One lender per line")
+    lenders = "".join(f"<span>{esc(l)}</span>" for l in LENDERS) * 2
+    steps = [("Check eligibility", "Share a few basic details. It takes two minutes and doesn't touch your credit score."),
+             ("Compare offers", "See matched offers side by side — rate, fees, EMI and tenure — with an advisor to explain them."),
+             ("Upload documents", "Submit documents online or schedule a free doorstep pickup. We check everything before it goes to the lender."),
+             ("Get your funds", "Sign digitally and receive the money straight into your bank account.")]
+    steps_html = "".join(f'<li>{T("h3", f"home.step{i}.title", a, f"Step {i} title", G)}{T("p", f"home.step{i}.text", b, f"Step {i} text", G)}</li>' for i, (a, b) in enumerate(steps, 1))
+    why = [("percent", "Better rates through comparison", "Your profile is matched against several lenders at once, so you see the strongest offers first."),
+           ("users", "A dedicated advisor", "One person who knows your file, answers your calls and follows up with the lender for you."),
+           ("shield", "Transparent and secure", "Every fee disclosed upfront, no hidden charges and bank-grade encryption for your data."),
+           ("zap", "Faster approvals", "Pre-checked documents and direct lender relationships mean fewer queries and quicker decisions.")]
+    why_html = "".join(f'<li>{ico(ic)}<div>{T("h3", f"home.why{i}.title", a, f"Reason {i} title", G)}{T("p", f"home.why{i}.text", b, f"Reason {i} text", G)}</div></li>' for i, (ic, a, b) in enumerate(why, 1))
     body = f'''
 <section class="hero" aria-labelledby="hero-h">{swoosh()}
 <div class="wrap hero-grid">
 <div class="rv">
-<h1 id="hero-h">Credit for a <span class="gold-text">brighter</span> tomorrow.</h1>
-<p class="hero-lead">Compare personal, home, business and gold loan offers from India's leading banks and NBFCs. Check your eligibility in two minutes — free, and with no impact on your credit score.</p>
+{T("h1", "home.hero.title", "Credit for a *brighter* tomorrow.", "Hero headline", G, attrs='id="hero-h"', hl="gold-text")}
+{T("p", "home.hero.lead", "Compare personal, home, business and gold loan offers from India's leading banks and NBFCs. Check your eligibility in two minutes — free, and with no impact on your credit score.", "Hero text", G, cls="hero-lead")}
 <div class="hero-ctas"><a class="btn btn-gold" href="/apply/">Check my eligibility {ico("arrow")}</a><a class="btn btn-ghost" href="#loans">Explore loans</a></div>
-<ul class="ticks"><li>{ico("check")}No upfront fees</li><li>{ico("check")}100% digital process</li><li>{ico("check")}Disbursal in 24 hrs*</li></ul>
-<div class="hero-people"><img src="/img/hero-family.webp" alt="Happy Indian family" width="1400" height="933"><p><strong>Personal advice, start to finish.</strong><br>One dedicated advisor handles your file from first call to disbursal.</p></div>
+{L("ul", "home.hero.ticks", ["No upfront fees", "100% digital process", "Disbursal in 24 hrs*"], "Hero tick points", G, cls="ticks")}
+<div class="hero-people"><img src="/img/hero-family.webp" alt="Happy Indian family" width="1400" height="933"><p>{T("strong", "home.hero.note.title", "Personal advice, start to finish.", "Hero note title", G)}<br>{T("span", "home.hero.note.text", "One dedicated advisor handles your file from first call to disbursal.", "Hero note text", G)}</p></div>
 </div>
 <div class="rv">{calc_widget("personal", heading="EMI calculator")}</div>
 </div></section>
@@ -218,23 +319,18 @@ def home():
 <div class="wrap rail-wrap"><nav class="rail rv" aria-label="Loan products">{rail}</nav></div>
 
 <section class="sec" id="loans" aria-labelledby="loans-h"><div class="wrap">
-<div class="sec-head rv"><h2 id="loans-h">One place for every <span class="hl">borrowing</span> need</h2><p>Tell us what you're planning and we'll match you with lenders whose rates, amounts and terms fit your profile.</p></div>
+<div class="sec-head rv">{T("h2", "home.loans.title", "One place for every *borrowing* need", "Products section heading", G, attrs='id="loans-h"', hl="hl")}{T("p", "home.loans.lead", "Tell us what you're planning and we'll match you with lenders whose rates, amounts and terms fit your profile.", "Products section text", G)}</div>
 <div class="explorer rv"><div class="ex-tabs" role="tablist" aria-label="Loan types" aria-orientation="vertical">{ex_tabs}</div><div>{ex_panels}</div></div>
 </div></section>
 
 <section class="sec steps-sec" aria-labelledby="steps-h"><div class="wrap">
-<div class="sec-head rv"><h2 id="steps-h">From application to money in the bank</h2><p>A simple, guided process with one advisor by your side.</p></div>
-<ol class="steps rv">
-<li><h3>Check eligibility</h3><p>Share a few basic details. It takes two minutes and doesn't touch your credit score.</p></li>
-<li><h3>Compare offers</h3><p>See matched offers side by side — rate, fees, EMI and tenure — with an advisor to explain them.</p></li>
-<li><h3>Upload documents</h3><p>Submit documents online or schedule a free doorstep pickup. We check everything before it goes to the lender.</p></li>
-<li><h3>Get your funds</h3><p>Sign digitally and receive the money straight into your bank account.</p></li>
-</ol></div></section>
+<div class="sec-head rv">{T("h2", "home.steps.title", "From application to money in the bank", "Process heading", G, attrs='id="steps-h"')}{T("p", "home.steps.lead", "A simple, guided process with one advisor by your side.", "Process text", G)}</div>
+<ol class="steps rv">{steps_html}</ol></div></section>
 
 <section class="sec" aria-labelledby="score-h"><div class="wrap"><div class="score rv">
-<div><h2 id="score-h">Know your credit score, <span class="gold-text">free</span>.</h2>
-<p>Your score decides the rate you're offered. See where you stand, what's pulling it down, and how to push it past 750.</p>
-<ul class="ticks"><li>{ico("check")}No impact on your score</li><li>{ico("check")}Personalised tips</li><li>{ico("check")}Pre-approved offers</li></ul>
+<div>{T("h2", "home.score.title", "Know your credit score, *free*.", "Credit score heading", G, attrs='id="score-h"', hl="gold-text")}
+{T("p", "home.score.lead", "Your score decides the rate you're offered. See where you stand, what's pulling it down, and how to push it past 750.", "Credit score text", G)}
+{L("ul", "home.score.ticks", ["No impact on your score", "Personalised tips", "Pre-approved offers"], "Credit score tick points", G, cls="ticks")}
 <a class="btn btn-gold" href="/credit-score/">Check my score {ico("arrow")}</a></div>
 <svg class="gauge" viewBox="0 0 400 240" role="img" aria-label="Credit score gauge from 300 to 900">
 <defs><linearGradient id="gg" x1="0" x2="1"><stop offset="0" stop-color="#E5534B"/><stop offset=".45" stop-color="#F2B84B"/><stop offset="1" stop-color="#3CCB8B"/></linearGradient></defs>
@@ -247,19 +343,14 @@ def home():
 
 <section class="sec" aria-labelledby="why-h" style="padding-top:0"><div class="wrap why">
 <div class="why-media rv"><img src="/img/mother-daughter.webp" alt="Mother and daughter smiling at home" width="1400" height="882" loading="lazy"></div>
-<div class="rv"><h2 id="why-h">Why families and businesses choose Credsey</h2>
-<p style="font-size:1.1rem;color:var(--muted)">We work for you, not for any single lender — so the advice you get is about what's right for your situation.</p>
-<ul class="why-list">
-<li>{ico("percent")}<div><h3>Better rates through comparison</h3><p>Your profile is matched against several lenders at once, so you see the strongest offers first.</p></div></li>
-<li>{ico("users")}<div><h3>A dedicated advisor</h3><p>One person who knows your file, answers your calls and follows up with the lender for you.</p></div></li>
-<li>{ico("shield")}<div><h3>Transparent and secure</h3><p>Every fee disclosed upfront, no hidden charges and bank-grade encryption for your data.</p></div></li>
-<li>{ico("zap")}<div><h3>Faster approvals</h3><p>Pre-checked documents and direct lender relationships mean fewer queries and quicker decisions.</p></div></li>
-</ul></div></div></section>
+<div class="rv">{T("h2", "home.why.title", "Why families and businesses choose Credsey", "Why us heading", G, attrs='id="why-h"')}
+{T("p", "home.why.lead", "We work for you, not for any single lender — so the advice you get is about what's right for your situation.", "Why us text", G, attrs='style="font-size:1.1rem;color:var(--muted)"')}
+<ul class="why-list">{why_html}</ul></div></div></section>
 
-<section class="lenders" aria-label="Lenders"><p>Offers from leading banks and NBFCs</p><div class="marquee" aria-hidden="true">{lenders}</div></section>
+<section class="lenders" aria-label="Lenders">{T("p", "home.lenders.title", "Offers from leading banks and NBFCs", "Lenders row heading", G)}<div class="marquee" aria-hidden="true" data-cms="home.lenders">{lenders}</div></section>
 
 <section class="sec" aria-labelledby="tools-h"><div class="wrap">
-<div class="sec-head rv"><h2 id="tools-h">Plan before you borrow</h2><p>Free calculators to size your loan, compare costs and plan repayments.</p></div>
+<div class="sec-head rv">{T("h2", "home.tools.title", "Plan before you borrow", "Calculators heading", G, attrs='id="tools-h"')}{T("p", "home.tools.lead", "Free calculators to size your loan, compare costs and plan repayments.", "Calculators text", G)}</div>
 <div class="tools rv">
 <a href="/emi-calculator/">{ico("calc")}<span><b>EMI calculator</b><small>Monthly EMI and repayment schedule</small></span>{ico("arrow", "ico arr")}</a>
 <a href="/calculators/#eligibility">{ico("users")}<span><b>Loan eligibility</b><small>How much can you borrow?</small></span>{ico("arrow", "ico arr")}</a>
@@ -270,17 +361,17 @@ def home():
 </div></div></section>
 
 <section class="sec" aria-labelledby="guides-h" style="padding-top:0"><div class="wrap">
-<div class="sec-head rv" style="display:flex;justify-content:space-between;align-items:end;gap:20px;max-width:none;flex-wrap:wrap"><div><h2 id="guides-h" style="margin:0">Money guides</h2></div><a class="link-arrow" href="/blog/">All guides {ico("arrow")}</a></div>
-<div class="guides rv">{guide_card(ARTICLES[0], big=True)}<div class="guide-stack">{guide_card(ARTICLES[1])}{guide_card(ARTICLES[2])}</div></div>
+<div class="sec-head rv" style="display:flex;justify-content:space-between;align-items:end;gap:20px;max-width:none;flex-wrap:wrap"><div>{T("h2", "home.guides.title", "Money guides", "Guides heading", G, attrs='id="guides-h" style="margin:0"')}</div><a class="link-arrow" href="/blog/">All guides {ico("arrow")}</a></div>
+<div class="guides rv" data-cms-posts="home">{guide_card(ARTICLES[0], big=True)}<div class="guide-stack">{guide_card(ARTICLES[1])}{guide_card(ARTICLES[2])}</div></div>
 </div></section>
-{faq_block(faqs)}'''
-    page("/", f"Credsey – Personal, Home & Business Loans Online | Compare & Apply",
+{faq_block("home.faq", G, faqs)}'''
+    page("/", "Credsey – Personal, Home & Business Loans Online | Compare & Apply",
          "Compare personal, home, business, gold and car loan offers from top banks and NBFCs. Free EMI calculator, eligibility check and expert advice — Credsey Financial Services.",
-         body, schema=[faq_schema(faqs), {"@context": "https://schema.org", "@type": "WebSite", "name": BRAND, "url": SITE + "/"}])
+         body, schema=[faq_ld("home.faq", faqs), {"@context": "https://schema.org", "@type": "WebSite", "name": BRAND, "url": SITE + "/"}])
 
-def guide_card(a, big=False):
-    from datetime import date
-    dt = date.fromisoformat(a["date"]).strftime("%d %b %Y")
-    return f'''<a class="guide" href="/blog/{a["slug"]}/"><figure><img src="/img/{a["img"]}.webp" alt="" width="1400" height="933" loading="lazy"></figure>
-<div><span class="meta">{dt} · {a["mins"]} min read</span><h3>{a["title"]}</h3>{f'<p>{a["desc"]}</p>' if big else ""}</div></a>'''
-
+def shell():
+    """Blog/dynamic page template for the Worker; placeholders are filled at request time."""
+    doc = render("{{PATH}}", "{{TITLE}}", "{{DESC}}", "{{MAIN}}", schema=[], og_img="{{OG}}", robots="index,follow")
+    doc = doc.replace(f'href="{SITE}{{{{PATH}}}}"', 'href="{{CANONICAL}}"').replace(f'content="{SITE}{{{{PATH}}}}"', 'content="{{CANONICAL}}"')
+    doc = doc.replace("</head>", "{{SCHEMA}}\n</head>")
+    (WORKER / "shell.html").write_text(doc, encoding="utf-8")

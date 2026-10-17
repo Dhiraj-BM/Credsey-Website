@@ -5,3 +5,6 @@ _stock/
 preview/
 .dev.vars
 *.secret.txt
+worker/.seed-admin.sql
+worker/.dev-admin.sql
+worker/.dev-login.txt

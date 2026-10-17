@@ -10,6 +10,8 @@
     "html_handling": "auto-trailing-slash",
     "run_worker_first": true
   },
-  "kv_namespaces": [{ "binding": "LEADS", "id": "a61324d9c9da4bb995958b9dd284d912" }],
+  "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
+  "kv_namespaces": [{ "binding": "KV", "id": "a61324d9c9da4bb995958b9dd284d912" }],
+  "d1_databases": [{ "binding": "DB", "database_name": "credsey-db", "database_id": "6d79b8e0-c1d8-45b7-b8a5-314c94389ddd" }],
   "observability": { "enabled": true }
 }

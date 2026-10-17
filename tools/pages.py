@@ -31,9 +31,7 @@ def lead_form(product="", compact=False, source="contact"):
 def product_page(p):
     trail = home_trail((p["name"], f'/{p["slug"]}/'))
     ctas = f'<div class="hero-ctas"><a class="btn btn-gold" href="/apply/?product={p["key"]}">Check eligibility {ico("arrow")}</a><a class="btn btn-ghost" href="#calc">Calculate EMI</a></div>'
-    pts = "".join(f'<li>{ico("check")}{esc(x)}</li>' for x in p["points"])
-    elig = "".join(f"<li>{esc(x)}</li>" for x in p["elig"])
-    docs = "".join(f"<li>{esc(x)}</li>" for x in p["docs"])
+    k, G = p["key"], pg(p)
     others = "".join(f'<a href="/{o["slug"]}/">{ico(o["icon"])}<span><b>{o["name"]}</b><small>{esc(o["facts"][0][0])} {esc(o["facts"][0][1])}</small></span>{ico("arrow", "ico arr")}</a>' for o in [o for o in PRODUCTS if o is not p][:6])
     calc = ""
     if p["key"] in ("personal", "home", "business", "car", "gold", "lap", "education"):
@@ -44,18 +42,22 @@ def product_page(p):
 <div class="rv">{calc_widget(p["key"], tabs=False, heading="Calculate your EMI", h="h3")}</div></div></section>'''
     elif p["key"] == "bt":
         calc = f'<section class="sec steps-sec" id="calc"><div class="wrap">{bt_calc()}</div></section>'
-    body = page_hero(trail, p["h1"], p["lead"], p["img"], p["facts"], ctas) + f'''
+    hero = f'''<section class="page-hero">{swoosh()}<div class="wrap ph-grid">
+<div class="rv"><ol class="crumbs"><li><a href="/">Home</a></li><li aria-current="page">{p["name"]}</li></ol>{T("h1", f"product.{k}.h1", p["h1"], "Page heading", G)}{T("p", f"product.{k}.lead", p["lead"], "Intro text", G, cls="hero-lead")}{ctas}
+<div class="facts">{fact_spans(p, "div")}</div></div>
+<div class="ph-img rv"><img src="/img/{p["img"]}.webp" alt="{p["name"]} — Credsey" width="1400" height="933" fetchpriority="high"></div></div></section>'''
+    body = hero + f'''
 <section class="sec" aria-labelledby="feat-h"><div class="wrap split">
-<div class="rv"><h2 id="feat-h">Why take your {p["name"].lower()} through Credsey</h2><p style="font-size:1.08rem;color:var(--muted)">{esc(p["desc"])}</p></div>
-<ul class="checks rv" style="font-size:1.06rem">{pts}</ul></div></section>
+<div class="rv"><h2 id="feat-h">Why take your {p["name"].lower()} through Credsey</h2>{T("p", f"product.{k}.desc", p["desc"], "Why-us paragraph", G, attrs='style="font-size:1.08rem;color:var(--muted)"')}</div>
+{L("ul", f"product.{k}.points", p["points"], "Key benefits", G, cls="checks rv", attrs='style="font-size:1.06rem"')}</div></section>
 {calc}
 <section class="sec" aria-labelledby="elig-h"><div class="wrap split">
-<div class="rv"><h2 id="elig-h">Eligibility</h2><ul class="checks">{"".join(f'<li>{ico("check")}{esc(x)}</li>' for x in p["elig"])}</ul><p style="color:var(--muted);font-size:.92rem">Criteria vary by lender. An advisor will confirm what applies to you.</p></div>
-<div class="rv"><h2>Documents required</h2><ul class="checks">{"".join(f'<li>{ico("file")}{esc(x)}</li>' for x in p["docs"])}</ul><a class="btn" href="/apply/?product={p["key"]}">Start my application {ico("arrow")}</a></div>
+<div class="rv"><h2 id="elig-h">Eligibility</h2>{L("ul", f"product.{k}.elig", p["elig"], "Eligibility criteria", G, cls="checks")}<p style="color:var(--muted);font-size:.92rem">Criteria vary by lender. An advisor will confirm what applies to you.</p></div>
+<div class="rv"><h2>Documents required</h2>{L("ul", f"product.{k}.docs", p["docs"], "Documents required", G, kind="file", cls="checks")}<a class="btn" href="/apply/?product={p["key"]}">Start my application {ico("arrow")}</a></div>
 </div></section>
 <section class="sec" style="padding-top:0" aria-labelledby="more-h"><div class="wrap"><div class="sec-head rv"><h2 id="more-h">Explore other products</h2></div><div class="tools rv">{others}</div></div></section>
-{faq_block(p["faq"], heading=f'{p["name"]} FAQs')}'''
-    schema = [faq_schema(p["faq"]), crumbs_schema(trail),
+{faq_block(f"product.{k}.faq", G, p["faq"], heading=f'{p["name"]} FAQs')}'''
+    schema = [faq_ld(f"product.{k}.faq", p["faq"]), crumbs_schema(trail),
               {"@context": "https://schema.org", "@type": "FinancialProduct" if p["key"] == "cards" else "LoanOrCredit", "name": p["name"], "description": p["desc"],
                "provider": {"@id": SITE + "/#org"}, "areaServed": "IN", "url": f'{SITE}/{p["slug"]}/'}]
     page(f'/{p["slug"]}/', p["title"], p["desc"], body, schema=schema)
@@ -107,10 +109,10 @@ def emi_page():
 <p>Shorter tenures and prepayments cut the total interest sharply. Try the <a href="/calculators/#prepayment">prepayment calculator</a> to see how much you could save.</p></div>
 </div>
 <div class="wrap amort"><h2>Repayment schedule</h2><div class="tbl-wrap"><table class="tbl"><thead><tr><th scope="col">Year</th><th scope="col">Principal paid</th><th scope="col">Interest paid</th><th scope="col">Balance</th></tr></thead><tbody id="amort-body"></tbody></table></div></div></section>
-{faq_block(faqs, heading="EMI questions")}'''
+{faq_block("emi.faq", "EMI calculator page", faqs, heading="EMI questions")}'''
     page("/emi-calculator/", "EMI Calculator – Personal, Home, Business & Car Loan EMI",
          "Calculate your loan EMI instantly with Credsey's free EMI calculator. See total interest, total payable and a year-by-year amortisation schedule.",
-         body, schema=[faq_schema(faqs), crumbs_schema(trail), {"@context": "https://schema.org", "@type": "WebApplication", "name": "Credsey EMI Calculator", "applicationCategory": "FinanceApplication", "operatingSystem": "Any", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"}, "url": SITE + "/emi-calculator/"}])
+         body, schema=[faq_ld("emi.faq", faqs), crumbs_schema(trail), {"@context": "https://schema.org", "@type": "WebApplication", "name": "Credsey EMI Calculator", "applicationCategory": "FinanceApplication", "operatingSystem": "Any", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"}, "url": SITE + "/emi-calculator/"}])
 
 def apply_page():
     trail = home_trail(("Apply", "/apply/"))
@@ -162,19 +164,17 @@ def credit_score_page():
 <p>Read our guide: <a href="/blog/how-to-improve-cibil-score/">How to improve your CIBIL score</a>.</p></div>
 <div class="form-card rv side-sticky"><h2 style="font-size:1.4rem">Get your free score report</h2><p style="color:var(--muted)">Share your details and an advisor will help you check your score and explain your report.</p>{lead_form("personal", compact=True, source="credit-score")}</div>
 </div></section>
-{faq_block(faqs, heading="Credit score FAQs")}'''
+{faq_block("score.faq", "Credit score page", faqs, heading="Credit score FAQs")}'''
     page("/credit-score/", "Check Your Credit Score Free – CIBIL Score Help",
          "Check your credit score free with Credsey. Understand your CIBIL report, what affects your score and how to improve it — with no impact on your score.",
-         body, schema=[faq_schema(faqs), crumbs_schema(trail)])
+         body, schema=[faq_ld("score.faq", faqs), crumbs_schema(trail)])
 
 def about_page():
     trail = home_trail(("About", "/about/"))
     body = page_hero(trail, "Honest advice for every borrowing decision", f"{BRAND} helps families, professionals and small businesses across India find the right loan — and understand it — before they sign.", "professional") + f'''
 <section class="sec"><div class="wrap split">
 <div class="rv"><h2>Our story</h2></div>
-<div class="rv prose"><p>Borrowing should feel like progress, not pressure. Yet most people walk into a loan with little idea of what they qualify for, what it will really cost or which lender suits them best.</p>
-<p>Credsey was built to change that. We compare offers from banks and NBFCs, explain every number in plain language, and stay with you from application to disbursal — so you borrow with confidence and repay with ease.</p>
-<p>Our name carries our promise: <strong>{TAGLINE.lower()}</strong>.</p></div></div></section>
+{T("div", "about.story", f"<p>Borrowing should feel like progress, not pressure. Yet most people walk into a loan with little idea of what they qualify for, what it will really cost or which lender suits them best.</p><p>Credsey was built to change that. We compare offers from banks and NBFCs, explain every number in plain language, and stay with you from application to disbursal — so you borrow with confidence and repay with ease.</p><p>Our name carries our promise: <strong>{TAGLINE.lower()}</strong>.</p>", "Our story", "About page", cls="rv prose", kind="html")}</div></section>
 <section class="sec steps-sec"><div class="wrap"><div class="sec-head rv"><h2>What we stand for</h2></div>
 <ul class="why-list rv" style="max-width:860px">
 <li>{ico("shield")}<div><h3>Your interest first</h3><p>We recommend the loan that fits you best, even when it isn't the biggest one.</p></div></li>
@@ -185,19 +185,28 @@ def about_page():
 
 def contact_page():
     trail = home_trail(("Contact", "/contact/"))
-    ways = []
-    if PHONE: ways.append(f'<li>{ico("phone")}<div><h3>Call us</h3><p><a href="tel:{PHONE_HREF}">{PHONE}</a></p></div></li>')
-    if WHATSAPP: ways.append(f'<li>{ico("chat")}<div><h3>WhatsApp</h3><p><a href="{B.WA_LINK}" rel="noopener" target="_blank">Chat with an advisor</a></p></div></li>')
-    if EMAIL: ways.append(f'<li>{ico("mail")}<div><h3>Email</h3><p><a href="mailto:{EMAIL}">{EMAIL}</a></p></div></li>')
-    ways.append(f'<li>{ico("clock")}<div><h3>Working hours</h3><p>{HOURS}</p></div></li>')
-    ways.append(f'<li>{ico("instagram")}<div><h3>Instagram</h3><p><a href="{SOCIAL["instagram"]}" rel="noopener" target="_blank">@cred.sey</a></p></div></li>')
+    ways = [f'<li data-cms-show="settings.phone">{ico("phone")}<div><h3>Call us</h3><p><a href="tel:{PHONE_HREF}" data-cms-href="tel" data-cms="settings.phone">{PHONE}</a></p></div></li>',
+            f'<li data-cms-show="settings.whatsapp">{ico("chat")}<div><h3>WhatsApp</h3><p><a href="{B.WA_LINK}" data-cms-href="wa" rel="noopener" target="_blank">Chat with an advisor</a></p></div></li>',
+            f'<li data-cms-show="settings.email"{" hidden" if not EMAIL else ""}>{ico("mail")}<div><h3>Email</h3><p><a href="mailto:{EMAIL}" data-cms-href="mailto" data-cms="settings.email">{EMAIL}</a></p></div></li>',
+            f'<li data-cms-show="settings.address">{ico("pin")}<div><h3>Office</h3><p data-cms="settings.address">{ADDRESS}</p></div></li>',
+            f'<li data-cms-show="settings.hours">{ico("clock")}<div><h3>Working hours</h3><p data-cms="settings.hours">{HOURS}</p></div></li>',
+            f'<li data-cms-show="settings.instagram">{ico("instagram")}<div><h3>Instagram</h3><p><a href="{SOCIAL["instagram"]}" data-cms-href="url" data-cms-key="settings.instagram" rel="noopener" target="_blank">Follow us</a></p></div></li>']
     body = page_hero(trail, "Talk to a Credsey advisor", "Leave your details and we'll call you back within one working day — or reach us directly.") + f'''
 <section class="sec"><div class="wrap split">
 <div class="form-card rv"><h2 style="font-size:1.4rem">Request a callback</h2>{lead_form("personal")}</div>
 <div class="rv"><ul class="why-list">{"".join(ways)}</ul></div></div></section>'''
     page("/contact/", "Contact Credsey – Request a Callback", "Contact Credsey Financial Services for loan advice. Request a callback and a dedicated advisor will help you compare and apply.", body, schema=[crumbs_schema(trail)])
 
-def blog_pages():
+def blog_seed():
+    """SQL that seeds the starter articles into D1 (posts table)."""
+    q = lambda v: "'" + str(v).replace("'", "''") + "'"
+    rows = []
+    for a in ARTICLES:
+        rows.append("INSERT OR IGNORE INTO posts (slug,title,description,cover,body,status,published_at,updated_at,author) VALUES (" + ",".join(
+            q(x) for x in [a["slug"], a["title"], a["desc"], "/img/" + a["img"] + ".webp", a["body"].replace("\n", " "), "published", a["date"] + "T09:00:00Z", a["date"] + "T09:00:00Z", "Credsey team"]) + ");")
+    (B.WORKER / "seed-posts.sql").write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+def blog_pages_unused():
     trail = home_trail(("Guides", "/blog/"))
     cards = "".join(guide_card(a, big=True) for a in ARTICLES)
     page("/blog/", "Money Guides – Loans, Credit Score & EMI Tips", "Practical guides from Credsey on loans, credit scores, EMIs and smart borrowing in India.",
@@ -244,7 +253,7 @@ LEGAL = {
 def legal_pages():
     for slug, (title, html_) in LEGAL.items():
         t = home_trail((title, f"/{slug}/"))
-        body = page_hero(t, title, f"Last updated {date.today().strftime('%d %B %Y')}.") + f'<section class="sec"><div class="wrap prose">{html_}</div></section>'
+        body = page_hero(t, title, f"Last updated {date.today().strftime('%d %B %Y')}.") + f'<section class="sec"><div class="wrap">{T("div", f"legal.{slug}", html_, title, "Legal pages", cls="prose", kind="html")}</div></section>'
         page(f"/{slug}/", title, f"{title} for {BRAND} — credsey.com.", body, schema=[crumbs_schema(t)])
 
 def not_found():
@@ -268,8 +277,10 @@ const a=document.getElementById('csv');a.href=URL.createObjectURL(new Blob([csv]
     page("/admin/", "Leads", "Admin", body, robots="noindex,nofollow")
 
 def meta_files():
+    (B.WORKER / "cms-schema.json").write_text(json.dumps(list(B.SCHEMA.values()), ensure_ascii=False), encoding="utf-8")
+    (B.WORKER / "pages.json").write_text(json.dumps(B.PAGES + ["/blog/"]), encoding="utf-8")
     urls = "".join(f'<url><loc>{SITE}{u}</loc><lastmod>{TODAY}</lastmod><priority>{"1.0" if u == "/" else "0.8" if u.count("/") == 2 and not u.startswith("/blog") else "0.6"}</priority></url>' for u in B.PAGES)
-    (B.ROOT / "sitemap.xml").write_text(f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n', encoding="utf-8")
+    (B.WORKER / "sitemap-static.xml").write_text(f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n', encoding="utf-8")
     (B.ROOT / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\nSitemap: {SITE}/sitemap.xml\n", encoding="utf-8")
     (B.ROOT / "site.webmanifest").write_text(json.dumps({"name": BRAND, "short_name": "Credsey", "start_url": "/", "display": "standalone", "background_color": "#ffffff", "theme_color": "#071A3E",
         "icons": [{"src": "/img/icon-192.png", "sizes": "192x192", "type": "image/png"}, {"src": "/img/icon-512.png", "sizes": "512x512", "type": "image/png"}]}), encoding="utf-8")
@@ -279,5 +290,5 @@ if __name__ == "__main__":
     B.home()
     for p in PRODUCTS: product_page(p)
     emi_page(); calculators_page(); apply_page(); credit_score_page(); about_page(); contact_page()
-    blog_pages(); legal_pages(); not_found(); admin_page(); meta_files()
+    blog_seed(); legal_pages(); not_found(); B.shell(); meta_files()
     print(len(B.PAGES), "indexable pages")
