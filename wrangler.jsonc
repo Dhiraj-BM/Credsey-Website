@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "credsey",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-08-25",
+  "assets": {
+    "directory": "./site",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash",
+    "run_worker_first": true
+  },
+  "kv_namespaces": [{ "binding": "LEADS", "id": "a61324d9c9da4bb995958b9dd284d912" }],
+  "observability": { "enabled": true }
+}
