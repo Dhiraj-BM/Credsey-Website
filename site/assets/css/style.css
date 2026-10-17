@@ -413,3 +413,4 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .hero-grid>*,.explorer>*,.ex-panel>*,.why>*,.split>*,.calc-page>*,.faq-grid>*,.ph-grid>*,.score>*,.guides>*{min-width:0}
 @media (max-width:640px){.field .val{min-width:120px}.hero-ctas .btn{flex:1}.calc{padding:20px 16px}}
 .field label{white-space:nowrap}
+.side-sticky .steps::before{display:none}

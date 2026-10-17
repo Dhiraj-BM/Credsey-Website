@@ -4,7 +4,7 @@ from pathlib import Path
 from data import *
 
 ROOT = Path(__file__).resolve().parent.parent / "site"
-VER = "5"
+VER = "6"
 esc = html.escape
 
 ICONS = {
