@@ -234,7 +234,7 @@ def blog_pages_unused():
 <div class="prose">{a["body"]}</div>
 <div class="cta-band" style="margin-top:48px"><div><h2 style="font-size:1.5rem">Need help with your loan?</h2><p>Talk to a Credsey advisor — it's free.</p></div><div class="btns"><a class="btn btn-dark" href="/apply/">Check eligibility {ico("arrow")}</a></div></div>
 </article></section>'''
-        page(f'/blog/{a["slug"]}/', a["title"], a["desc"], body, og_img=a["img"] + ".webp", schema=[crumbs_schema(t),
+        page(f'/blog/{a["slug"]}/', a["title"], a["desc"], body, schema=[crumbs_schema(t),
              {"@context": "https://schema.org", "@type": "Article", "headline": a["title"], "description": a["desc"], "datePublished": a["date"], "dateModified": a["date"],
               "image": f'{SITE}/img/{a["img"]}.webp', "author": {"@type": "Organization", "name": BRAND}, "publisher": {"@id": SITE + "/#org"}, "mainEntityOfPage": f'{SITE}/blog/{a["slug"]}/'}])
 

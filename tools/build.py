@@ -179,6 +179,15 @@ def footer():
 <a class="wa-float" href="{WA_LINK}" data-cms-href="wa"{S("settings.whatsapp")} rel="noopener" target="_blank" aria-label="Chat with Credsey on WhatsApp"><svg viewBox="0 0 32 32" aria-hidden="true">{WA_PATH}</svg></a>
 <div class="m-bar">{phone_link("btn btn-line", ico("phone") + " Call")}<a class="btn btn-gold" href="/apply/">Apply now</a></div>'''
 
+def og_tags(og_img, title):
+    """Share-preview image tags. WhatsApp/LinkedIn skip images without an absolute URL; size + type let them render on first share."""
+    src = og_img if og_img.startswith(("http", "{{")) else SITE + "/img/" + og_img
+    dims = '<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:type" content="image/jpeg">' if src.endswith("og-cover.jpg") else ""
+    return (f'<meta property="og:image" content="{src}"><meta property="og:image:secure_url" content="{src}">{dims}'
+            f'<meta property="og:image:alt" content="Credsey Financial Services logo">'
+            f'<meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="{src}">')
+
+
 def head(path, title, desc, schema, og_img, robots):
     url = SITE + path
     sk = "seo." + (path.strip("/") or "home")
@@ -198,7 +207,7 @@ def head(path, title, desc, schema, og_img, robots):
 <meta name="theme-color" content="#071A3E">
 <meta property="og:type" content="website"><meta property="og:site_name" content="{BRAND}"><meta property="og:locale" content="en_IN">
 <meta property="og:title" content="{esc(full) if "{{" not in full else full}"{f' data-cms="{sk}.title" data-cms-attr="content"' if tk else ""}><meta property="og:description" content="{esc(desc) if "{{" not in desc else desc}"{dk}><meta property="og:url" content="{url}">
-<meta property="og:image" content="{og_img if og_img.startswith(("http", "{{")) else SITE + "/img/" + og_img}"><meta name="twitter:card" content="summary_large_image">
+{og_tags(og_img, full)}
 <link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/img/icon-192.png"><link rel="apple-touch-icon" href="/img/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest">
 <link rel="preload" href="/assets/fonts/poppins-700.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/assets/fonts/poppins-600.woff2" as="font" type="font/woff2" crossorigin>
 <style>{INLINE_CSS}</style>

@@ -170,7 +170,7 @@ ${p.cover ? `<figure><img src="${esc(p.cover)}" alt="" width="1400" height="933"
 </article></section>`;
   const article = { "@context": "https://schema.org", "@type": "Article", headline: p.title, description: p.description, datePublished: p.published_at, dateModified: p.updated_at || p.published_at,
     image: p.cover ? (p.cover.startsWith("http") ? p.cover : SITE + p.cover) : SITE + "/img/og-cover.jpg", author: { "@type": "Organization", name: "Credsey Financial Services" }, publisher: { "@id": SITE + "/#org" }, mainEntityOfPage: SITE + path };
-  return shellPage({ path, title: p.title, desc: p.description, og: p.cover || "/img/og-cover.jpg", schema: [crumbs([["Home", "/"], ["Guides", "/blog/"], [p.title, path]]), article], main });
+  return shellPage({ path, title: p.title, desc: p.description, og: /\.(jpe?g|png)$/i.test(p.cover || "") ? p.cover : "/img/og-cover.jpg", schema: [crumbs([["Home", "/"], ["Guides", "/blog/"], [p.title, path]]), article], main });
 }
 
 async function sitemap(env) {
