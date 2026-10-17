@@ -209,11 +209,11 @@ async function pbkdf2(password, salt, iter) {
 }
 async function hashPassword(pw) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  return `pbkdf2$100000$${b64(salt)}$${b64(await pbkdf2(pw, salt, 100000))}`;
+  return `pbkdf2$100000$${b64(salt)}$${b64(await pbkdf2(String(pw).trim(), salt, 100000))}`;
 }
 async function checkPassword(pw, stored) {
   const [, iter, salt, hash] = String(stored).split("$");
-  const got = b64(await pbkdf2(pw, unb64(salt), +iter));
+  const got = b64(await pbkdf2(String(pw).trim(), unb64(salt), +iter)); // stray spaces from copy-paste never lock anyone out
   return got.length === hash.length && crypto.subtle.timingSafeEqual
     ? crypto.subtle.timingSafeEqual(new TextEncoder().encode(got), new TextEncoder().encode(hash))
     : got === hash;

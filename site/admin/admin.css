@@ -100,3 +100,6 @@ tr.fresh{animation:fresh 2.5s ease}
   .menu-btn{display:grid;place-items:center;position:fixed;right:14px;bottom:14px;width:52px;height:52px;border-radius:50%;border:0;background:var(--navy);color:#fff;font-size:1.3rem;z-index:41;box-shadow:0 10px 24px -8px rgba(0,0,0,.5)}
   .main{padding:20px 14px 90px}
 }
+
+.login-card .show-pw{display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:400;font-size:14px}
+.login-card .show-pw input{width:auto;margin:0}

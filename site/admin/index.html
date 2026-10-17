@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
-<link rel="stylesheet" href="/admin/admin.css?v=1">
+<link rel="stylesheet" href="/admin/admin.css?v=2">
 </head><body>
 <div id="login" class="login" hidden>
   <form class="login-card" id="login-form">
@@ -15,6 +15,7 @@
     <h1>Admin portal</h1>
     <label>Email<input name="email" type="email" autocomplete="username" required></label>
     <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+    <label class="show-pw"><input type="checkbox" id="show-pw"> Show password</label>
     <button class="btn" type="submit">Sign in</button>
     <p class="msg" role="alert"></p>
   </form>
@@ -38,5 +39,5 @@
 </div>
 <div id="toast" class="toast" role="status" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
-<script src="/admin/admin.js?v=1"></script>
+<script src="/admin/admin.js?v=2"></script>
 </body></html>

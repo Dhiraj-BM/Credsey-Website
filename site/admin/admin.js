@@ -33,10 +33,11 @@
   $("#login-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var f = e.target, b = $("button", f); b.disabled = true; $(".msg", f).textContent = "";
-    api("/login", { method: "POST", body: { email: f.email.value, password: f.password.value } })
+    api("/login", { method: "POST", body: { email: f.email.value.trim(), password: f.password.value.trim() } })
       .then(boot).catch(function (err) { $(".msg", f).textContent = err.message; })
       .then(function () { b.disabled = false; });
   });
+  $("#show-pw").addEventListener("change", function (e) { $("#login-form").password.type = e.target.checked ? "text" : "password"; });
   $("#logout").addEventListener("click", function () { api("/logout", { method: "POST" }).then(showLogin); });
   $("#menu-btn").addEventListener("click", function () { $(".side").classList.toggle("open"); });
 
