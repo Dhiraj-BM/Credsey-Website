@@ -1,12 +1,14 @@
 // Credsey edge worker
 // - Serves the static site and swaps in content edited from the admin portal (HTMLRewriter)
-// - Renders the blog from D1 (server-side, SEO friendly) and a dynamic sitemap
+// - Renders the blog from D1 (server-side, SEO friendly), a dynamic sitemap and an RSS feed
+// - Pings IndexNow (Bing, Yandex, Seznam, Naver) the moment a guide is published, updated or deleted
 // - Lead capture API and the authenticated admin API (leads, content, blog, media, users)
 import SCHEMA from "./cms-schema.json";
 import PAGES from "./pages.json";
 import SHELL from "./shell.html";
 
 const SITE = "https://credsey.com";
+const INDEXNOW_KEY = "c7e3f1a94b2d4e6f8a0b1c2d3e4f5a6b";
 const DEF = Object.fromEntries(SCHEMA.map((f) => [f.key, f]));
 const PRODUCTS = { personal: "Personal Loan", business: "Business Loan", home: "Home Loan", lap: "Loan Against Property", gold: "Gold Loan", car: "Car Loan", education: "Education Loan", bt: "Balance Transfer", cards: "Credit Cards" };
 const STATUSES = ["new", "contacted", "qualified", "converted", "lost"];
@@ -141,6 +143,60 @@ function shellPage({ path, title, desc, og, schema, main, status = 200 }) {
   return new Response(html, { status, headers: { "content-type": "text/html; charset=utf-8" } });
 }
 const crumbs = (trail) => ({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: trail.map(([n, u], i) => ({ "@type": "ListItem", position: i + 1, name: n, item: SITE + u })) });
+// Tells IndexNow engines a URL changed; Google picks the same change up from the sitemap + feed lastmod.
+async function pingIndexNow(env, paths, live = true) {
+  try {
+    if (!live) return await env.KV.put("seo:lastping", JSON.stringify({ at: now(), status: "skipped (local)", urls: paths }));
+    const r = await fetch("https://api.indexnow.org/indexnow", { method: "POST", headers: { "content-type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ host: "credsey.com", key: INDEXNOW_KEY, keyLocation: `${SITE}/${INDEXNOW_KEY}.txt`, urlList: paths.map((p) => SITE + p) }) });
+    await env.KV.put("seo:lastping", JSON.stringify({ at: now(), status: r.status, urls: paths }));
+  } catch (e) { console.error("indexnow", e); }
+}
+
+// Question-style headings ("How much ...?") followed by text become FAQ rich-result candidates.
+function faqFromBody(html) {
+  const out = [], re = /<h[23][^>]*>([^<]{8,200}\?)\s*<\/h[23]>([\s\S]*?)(?=<h[23]|$)/gi;
+  let m;
+  while ((m = re.exec(html)) && out.length < 10) {
+    const a = m[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (a.length > 20) out.push({ "@type": "Question", name: m[1].replace(/&amp;/g, "&").trim(), acceptedAnswer: { "@type": "Answer", text: a.slice(0, 1200) } });
+  }
+  return out.length ? { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: out } : null;
+}
+
+async function feed(env) {
+  const { results = [] } = await env.DB.prepare("SELECT slug,title,description,published_at,updated_at FROM posts WHERE status='published' ORDER BY published_at DESC LIMIT 50").all();
+  const items = results.map((p) => `<item><title>${esc(p.title)}</title><link>${SITE}/blog/${p.slug}/</link><guid isPermaLink="true">${SITE}/blog/${p.slug}/</guid><description>${esc(p.description)}</description><pubDate>${new Date(p.published_at).toUTCString()}</pubDate></item>`).join("");
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Credsey Money Guides</title><link>${SITE}/blog/</link><atom:link href="${SITE}/feed.xml" rel="self" type="application/rss+xml"/><description>Practical guides on loans, credit cards, credit scores and EMIs in India.</description><language>en-IN</language>${results[0] ? `<lastBuildDate>${new Date(results[0].updated_at || results[0].published_at).toUTCString()}</lastBuildDate>` : ""}${items}</channel></rss>`;
+  return new Response(xml, { headers: { "content-type": "application/rss+xml; charset=utf-8", "cache-control": "public, max-age=600" } });
+}
+
+// Real search queries from Google autocomplete (India), grouped by what the searcher wants.
+const INTENTS = [
+  ["Ready to apply", /\b(apply|online|instant|near me|eligibility|documents?|without|pre.?approved|for (salaried|self.employed|students?|women)|kaise|app)\b/i],
+  ["Comparing options", /\b(best|lowest|top|vs|compare|comparison|rates?|interest|charges|fees|which|bank|nbfc|offers?)\b/i],
+  ["Learning", /\b(how|what|why|when|meaning|calculator|calculate|formula|rules?|benefits?|tax|is it|can i|should)\b/i],
+];
+async function keywordIdeas(env, q) {
+  q = q.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 60);
+  if (q.length < 3) return { query: q, groups: [] };
+  const ck = "kw:" + q, hit = await env.KV.get(ck, "json");
+  if (hit) return hit;
+  const seeds = [q, q + " for", q + " how", q + " best", q + " kaise", "how to " + q, "best " + q, q + " vs", q + " eligibility", q + " interest rate"];
+  const lists = await Promise.all(seeds.map((x) => fetch(`https://suggestqueries.google.com/complete/search?client=firefox&hl=en&gl=in&q=${encodeURIComponent(x)}`, { headers: { "user-agent": "Mozilla/5.0" } })
+    .then((r) => (r.ok ? r.json() : [x, []])).then((j) => j[1] || []).catch(() => [])));
+  const seen = new Set(), groups = Object.fromEntries(INTENTS.map(([n]) => [n, []]).concat([["Other searches", []]]));
+  for (const k of lists.flat()) {
+    const t = String(k).toLowerCase().trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    groups[(INTENTS.find(([, re]) => re.test(t)) || ["Other searches"])[0]].push(t);
+  }
+  const out = { query: q, groups: Object.entries(groups).filter(([, v]) => v.length).map(([name, items]) => ({ name, items: items.slice(0, 15) })) };
+  await env.KV.put(ck, JSON.stringify(out), { expirationTtl: 86400 });
+  return out;
+}
+
 const swoosh = `<svg class="hero-swoosh" viewBox="0 0 1000 600" aria-hidden="true"><path d="M0 520 C 300 520 620 420 1000 80" fill="none" stroke="#E3BC6E" stroke-opacity=".5" stroke-width="3"/><path d="M80 600 C 400 590 700 480 1000 230 L1000 600Z" fill="#2A72D6" fill-opacity=".18"/></svg>`;
 
 async function blogIndex(env, url) {
@@ -170,7 +226,7 @@ ${p.cover ? `<figure><img src="${esc(p.cover)}" alt="" width="1400" height="933"
 </article></section>`;
   const article = { "@context": "https://schema.org", "@type": "Article", headline: p.title, description: p.description, datePublished: p.published_at, dateModified: p.updated_at || p.published_at,
     image: p.cover ? (p.cover.startsWith("http") ? p.cover : SITE + p.cover) : SITE + "/img/og-cover.jpg", author: { "@type": "Organization", name: "Credsey Financial Services" }, publisher: { "@id": SITE + "/#org" }, mainEntityOfPage: SITE + path };
-  return shellPage({ path, title: p.title, desc: p.description, og: /\.(jpe?g|png)$/i.test(p.cover || "") ? p.cover : "/img/og-cover.jpg", schema: [crumbs([["Home", "/"], ["Guides", "/blog/"], [p.title, path]]), article], main });
+  return shellPage({ path, title: p.title, desc: p.description, og: /\.(jpe?g|png)$/i.test(p.cover || "") ? p.cover : "/img/og-cover.jpg", schema: [crumbs([["Home", "/"], ["Guides", "/blog/"], [p.title, path]]), article, faqFromBody(p.body)].filter(Boolean), main });
 }
 
 async function sitemap(env) {
@@ -180,7 +236,7 @@ async function sitemap(env) {
     const { results = [] } = await env.DB.prepare("SELECT slug, COALESCE(updated_at, published_at) AS m FROM posts WHERE status='published'").all();
     urls = urls.concat(results.map((p) => `<url><loc>${SITE}/blog/${p.slug}/</loc><lastmod>${String(p.m).slice(0, 10)}</lastmod><priority>0.6</priority></url>`));
   } catch {}
-  return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join("")}</urlset>`, { headers: { "content-type": "application/xml", "cache-control": "public, max-age=3600" } });
+  return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join("")}</urlset>`, { headers: { "content-type": "application/xml", "cache-control": "public, max-age=600" } });
 }
 
 /* ---------------- sanitising rich text from the editor ---------------- */
@@ -256,7 +312,7 @@ async function saveLead(req, env) {
 }
 
 /* ---------------- admin API ---------------- */
-async function admin(req, env, url) {
+async function admin(req, env, url, ctx) {
   const path = url.pathname.replace(/^\/api\/admin/, "") || "/";
   const m = req.method;
 
@@ -397,23 +453,31 @@ async function admin(req, env, url) {
       if (!d.title || !slug) return json({ error: "Title is required" }, 400);
       const status = d.status === "published" ? "published" : "draft";
       const body = await sanitize(String(d.body || "").slice(0, 200000));
-      const prev = id ? await env.DB.prepare("SELECT published_at,status FROM posts WHERE id=?").bind(id).first() : null;
+      const prev = id ? await env.DB.prepare("SELECT published_at,status,slug FROM posts WHERE id=?").bind(id).first() : null;
       const pub = status === "published" ? (d.published_at || prev?.published_at || now()) : prev?.published_at || null;
-      const vals = [slug, String(d.title).slice(0, 200), String(d.description || "").slice(0, 320), String(d.cover || "").slice(0, 500), body, status, String(d.author || user.name || "Credsey team").slice(0, 80), pub, now()];
+      const vals = [slug, String(d.title).slice(0, 200), String(d.description || "").slice(0, 320), String(d.cover || "").slice(0, 500), body, status, String(d.author || user.name || "Credsey team").slice(0, 80), pub, now(), String(d.keyword || "").slice(0, 80)];
+      const ping = (s) => { if (status === "published" || prev?.status === "published") ctx.waitUntil(pingIndexNow(env, [`/blog/${s}/`, "/blog/"], url.hostname === "credsey.com")); };
       try {
-        if (id) await env.DB.prepare("UPDATE posts SET slug=?,title=?,description=?,cover=?,body=?,status=?,author=?,published_at=?,updated_at=? WHERE id=?").bind(...vals, id).run();
+        if (id) await env.DB.prepare("UPDATE posts SET slug=?,title=?,description=?,cover=?,body=?,status=?,author=?,published_at=?,updated_at=?,keyword=? WHERE id=?").bind(...vals, id).run();
         else {
-          const r = await env.DB.prepare("INSERT INTO posts (slug,title,description,cover,body,status,author,published_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)").bind(...vals).run();
-          return json({ ok: true, id: r.meta.last_row_id, slug });
+          const r = await env.DB.prepare("INSERT INTO posts (slug,title,description,cover,body,status,author,published_at,updated_at,keyword) VALUES (?,?,?,?,?,?,?,?,?,?)").bind(...vals).run();
+          ping(slug);
+          return json({ ok: true, id: r.meta.last_row_id, slug, pinged: status === "published" });
         }
       } catch (e) {
         return json({ error: String(e).includes("UNIQUE") ? "Another guide already uses this URL slug" : "Could not save" }, 400);
       }
       postCache.rows = null;
-      return json({ ok: true, id, slug });
+      ping(slug);
+      if (prev?.slug && prev.slug !== slug && prev.status === "published") ctx.waitUntil(pingIndexNow(env, [`/blog/${prev.slug}/`], url.hostname === "credsey.com"));
+      return json({ ok: true, id, slug, pinged: status === "published" || prev?.status === "published" });
     }
+    if (path === "/posts/keywords" && m === "GET") return json(await keywordIdeas(env, url.searchParams.get("q") || ""));
     if (id && m === "DELETE") {
+      const old = await env.DB.prepare("SELECT slug,status FROM posts WHERE id=?").bind(id).first();
       await env.DB.prepare("DELETE FROM posts WHERE id=?").bind(id).run();
+      postCache.rows = null;
+      if (old?.status === "published") ctx.waitUntil(pingIndexNow(env, [`/blog/${old.slug}/`, "/blog/"], url.hostname === "credsey.com"));
       return json({ ok: true });
     }
   }
@@ -457,13 +521,13 @@ async function admin(req, env, url) {
 
 /* ---------------- router ---------------- */
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (url.hostname === "www.credsey.com") { url.hostname = "credsey.com"; return Response.redirect(url.toString(), 301); }
     const p = url.pathname;
     try {
       if (p === "/api/lead" && req.method === "POST") return await saveLead(req, env);
-      if (p.startsWith("/api/admin")) return await admin(req, env, url);
+      if (p.startsWith("/api/admin")) return await admin(req, env, url, ctx);
       if (p.startsWith("/api/")) return json({ error: "Not found" }, 404);
       if (p.startsWith("/media/")) {
         const { value, metadata } = await env.KV.getWithMetadata(p.slice(1).replace("/", ":"), "arrayBuffer");
@@ -471,6 +535,7 @@ export default {
         return new Response(value, { headers: { "content-type": metadata?.type || "application/octet-stream", "cache-control": "public, max-age=31536000, immutable" } });
       }
       if (p === "/sitemap.xml") return await sitemap(env);
+      if (p === "/feed.xml") return await feed(env);
       if (p === "/blog" || (p.startsWith("/blog/") && !p.endsWith("/") && !p.includes("."))) return Response.redirect(url.origin + p + "/", 301);
       if (p === "/blog/") return await withContent(await blogIndex(env, url), env, url);
       const bm = p.match(/^\/blog\/([a-z0-9-]+)\/$/);

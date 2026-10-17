@@ -208,7 +208,7 @@ def head(path, title, desc, schema, og_img, robots):
 <meta property="og:type" content="website"><meta property="og:site_name" content="{BRAND}"><meta property="og:locale" content="en_IN">
 <meta property="og:title" content="{esc(full) if "{{" not in full else full}"{f' data-cms="{sk}.title" data-cms-attr="content"' if tk else ""}><meta property="og:description" content="{esc(desc) if "{{" not in desc else desc}"{dk}><meta property="og:url" content="{url}">
 {og_tags(og_img, full)}
-<link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/img/icon-192.png"><link rel="apple-touch-icon" href="/img/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest">
+<link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/img/icon-192.png"><link rel="apple-touch-icon" href="/img/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest"><link rel="alternate" type="application/rss+xml" title="Credsey Money Guides" href="/feed.xml">
 <link rel="preload" href="/assets/fonts/poppins-700.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/assets/fonts/poppins-600.woff2" as="font" type="font/woff2" crossorigin>
 <style>{INLINE_CSS}</style>
 {ld}'''

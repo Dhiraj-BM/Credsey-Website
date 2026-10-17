@@ -64,11 +64,11 @@ def product_page(p):
 {L("ul", f"product.{k}.points", p["points"], "Key benefits", G, cls="checks rv", attrs='style="font-size:1.06rem"')}</div></section>
 {calc}
 <section class="sec" aria-labelledby="elig-h"><div class="wrap split">
-<div class="rv"><h2 id="elig-h">Eligibility</h2>{L("ul", f"product.{k}.elig", p["elig"], "Eligibility criteria", G, cls="checks")}<p style="color:var(--muted);font-size:.92rem">Criteria vary by lender. An advisor will confirm what applies to you.</p></div>
-<div class="rv"><h2>Documents required</h2>{L("ul", f"product.{k}.docs", p["docs"], "Documents required", G, kind="file", cls="checks")}<a class="btn" href="/apply/?product={p["key"]}">Start my application {ico("arrow")}</a></div>
+<div class="rv"><h2 id="elig-h">{p["name"]} eligibility</h2>{L("ul", f"product.{k}.elig", p["elig"], "Eligibility criteria", G, cls="checks")}<p style="color:var(--muted);font-size:.92rem">Criteria vary by lender. An advisor will confirm what applies to you.</p></div>
+<div class="rv"><h2>Documents required for {p["name"].lower()}</h2>{L("ul", f"product.{k}.docs", p["docs"], "Documents required", G, kind="file", cls="checks")}<a class="btn" href="/apply/?product={p["key"]}">Start my application {ico("arrow")}</a></div>
 </div></section>
 <section class="sec" style="padding-top:0" aria-labelledby="more-h"><div class="wrap"><div class="sec-head rv"><h2 id="more-h">Explore other products</h2></div><div class="tools rv">{others}</div></div></section>
-{faq_block(f"product.{k}.faq", G, p["faq"], heading=f'{p["name"]} FAQs')}'''
+{faq_block(f"product.{k}.faq", G, p["faq"], heading=f'{p["name"]}: questions people ask')}'''
     schema = [faq_ld(f"product.{k}.faq", p["faq"]), crumbs_schema(trail),
               {"@context": "https://schema.org", "@type": "FinancialProduct" if p["key"] == "cards" else "LoanOrCredit", "name": p["name"], "description": p["desc"],
                "provider": {"@id": SITE + "/#org"}, "areaServed": "IN", "url": f'{SITE}/{p["slug"]}/', **loan_props(p)}]
@@ -301,7 +301,7 @@ def meta_files():
     urls = "".join(f'<url><loc>{SITE}{u}</loc><lastmod>{TODAY}</lastmod><priority>{"1.0" if u == "/" else "0.8" if u.count("/") == 2 and not u.startswith("/blog") else "0.6"}</priority></url>' for u in B.PAGES)
     (B.WORKER / "sitemap-static.xml").write_text(f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n', encoding="utf-8")
     ai = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "PerplexityBot", "Google-Extended", "Applebot-Extended", "Bingbot", "Googlebot"]
-    (B.ROOT / "robots.txt").write_text("User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\n" + "".join(f"User-agent: {a}\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\n" for a in ai) + f"Sitemap: {SITE}/sitemap.xml\n", encoding="utf-8")
+    (B.ROOT / "robots.txt").write_text("User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\n" + "".join(f"User-agent: {a}\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\n" for a in ai) + f"Sitemap: {SITE}/sitemap.xml\nSitemap: {SITE}/feed.xml\n", encoding="utf-8")
     llms = [f"# {BRAND}", "", f"> {BRAND} (Credsey) is an India-based loan advisory and facilitation service. We help individuals and businesses compare and apply for loans from banks and NBFCs, with free advice from application to disbursal. Credsey is not a lender; loans are sanctioned by partner lenders.", "",
             f"- Website: {SITE}", f"- Phone / WhatsApp: {PHONE}", f"- Email: {EMAIL}", f"- Service area: India", f"- Tagline: {TAGLINE}", "", "## Loan products", ""]
     llms += [f"- [{p['name']}]({SITE}/{p['slug']}/): {p['desc']} " + "; ".join(f"{l}: {v}" for v, l in p["facts"]) for p in PRODUCTS]

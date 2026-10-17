@@ -159,3 +159,37 @@ ARTICLES = [
 <h2>Property documents</h2><ul><li>Allotment letter or agreement for sale</li><li>Title deed chain and encumbrance certificate</li><li>Approved building plan and NOC from the society or builder</li><li>Receipts of payments made to the builder or seller</li></ul>
 <div class="callout">Credsey advisors check your file before it reaches the lender, so nothing goes back and forth. <a href="/apply/?product=home">Start your home loan application</a>.</div>"""),
 ]
+
+
+# Questions people actually type into Google for each product (People-also-ask intent). Appended to each page's FAQ + FAQPage schema.
+INTENT_FAQ = {
+ "personal": [("How much personal loan can I get on my salary?", "Most lenders offer 10 to 24 times your monthly take-home pay, keeping all your EMIs within about 50–60% of income. On a ₹50,000 salary with no other EMIs, that is typically ₹5–12 lakh."),
+              ("Can I get a personal loan with a low CIBIL score?", "Some NBFCs lend below a 700 score, usually at higher rates or for smaller amounts. Adding a co-applicant or improving your score for a few months gets you far better offers."),
+              ("Can self-employed people get a personal loan?", "Yes. Lenders look at 2 years of ITR, 6–12 months of bank statements and proof of business. Credsey compares lenders that specialise in self-employed applicants.")],
+ "business": [("What is the interest rate on a business loan?", "Unsecured business loans typically cost about 14–24% a year, depending on turnover, business vintage and credit score. Secured loans and government-backed schemes are cheaper."),
+              ("How much business loan can I get?", "For unsecured loans, lenders usually offer around 10–20% of your annual turnover, based on your bank statements, GST returns and existing EMIs."),
+              ("Can I get a business loan without ITR?", "Some lenders accept GST returns and 12 months of bank statements instead. Government schemes such as MUDRA are also designed for small businesses with limited paperwork.")],
+ "home": [("How much home loan can I get on a ₹50,000 salary?", "With no other EMIs, lenders usually allow an EMI of about ₹25,000. At around 8.5% that supports roughly ₹28 lakh over 20 years or ₹32 lakh over 30 years."),
+          ("Does a co-applicant increase home loan eligibility?", "Yes. Adding an earning spouse or parent combines both incomes. If you are co-owners and co-borrowers, both can also claim tax benefits on the loan."),
+          ("What are the home loan charges besides interest?", "Expect a processing fee (often 0.25–1% of the loan), legal and valuation charges, and stamp duty on the loan agreement. Floating-rate home loans for individuals have no foreclosure charges.")],
+ "lap": [("How much loan can I get against my property?", "Lenders usually offer 50–70% of the market value: residential property gets the higher end, commercial property slightly lower."),
+         ("Is a loan against property better than a personal loan?", "It is cheaper and runs much longer, so EMIs are lower. The trade-off is that your property is pledged and processing takes 1–2 weeks instead of days."),
+         ("Can I get a loan against property for business use?", "Yes. LAP is widely used for business expansion, working capital and buying equipment, because it raises large amounts at lower rates.")],
+ "gold": [("How much loan can I get per gram of gold?", "RBI caps gold loans at 75–85% of the gold's value, depending on the loan size. The per-gram amount changes daily with gold prices and the purity of your jewellery."),
+          ("Is CIBIL score checked for a gold loan?", "Because the loan is secured by gold, a low score rarely blocks approval. Repaying on time still helps build your credit score."),
+          ("What happens if I don't repay a gold loan?", "The lender sends reminders and notices first. If dues remain unpaid, it can auction the gold to recover the loan and return any surplus to you.")],
+ "car": [("Can I get a loan for a used car?", "Yes. Lenders typically fund up to 80–90% of the used car's valuation, with limits on the car's age at the end of the loan."),
+         ("What is the car loan interest rate?", "New-car loans from banks usually start around 9% a year for good credit profiles. Used-car loans and NBFC loans cost a little more."),
+         ("Can I get 100% car loan funding?", "Some lenders fund up to 100% of the ex-showroom price for strong salaried profiles. Most customers pay 10–20% as a down payment.")],
+ "education": [("Do I need collateral for an education loan?", "Not usually for loans up to ₹7.5 lakh, which can be covered by a government credit guarantee. NBFCs also give larger unsecured loans for well-ranked universities."),
+               ("Is there a tax benefit on an education loan?", "Yes. Under Section 80E (old tax regime) the full interest you pay is deductible for up to 8 years, with no upper limit."),
+               ("When does education loan repayment start?", "Repayment normally starts after the course ends plus a moratorium of 6–12 months. Paying the interest during the course lowers the total cost.")],
+ "bt": [("When does a loan balance transfer make sense?", "When the new rate is at least 0.5–1% lower and a good part of the tenure is still left. Our calculator shows your exact savings after fees."),
+        ("What are the charges for a balance transfer?", "Mainly the new lender's processing fee and legal or valuation charges. Floating-rate home loans for individuals carry no foreclosure charge."),
+        ("Can I get a top-up loan with a balance transfer?", "Yes. Many lenders offer a top-up at home loan rates when you transfer, which is far cheaper than a personal loan.")],
+ "cards": [("Which credit card is best for beginners?", "A lifetime-free card with simple rewards, or a secured card against a fixed deposit if you have no credit history yet."),
+           ("Can I get a credit card without income proof?", "Yes. A secured credit card issued against a fixed deposit needs no salary slip and helps build your credit score."),
+           ("What credit score do I need for a credit card?", "A score of 750 or more gets you most premium cards. Entry-level and secured cards are available with lower or no scores.")],
+}
+for _p in PRODUCTS:
+    _p["faq"] = _p["faq"] + INTENT_FAQ.get(_p["key"], [])

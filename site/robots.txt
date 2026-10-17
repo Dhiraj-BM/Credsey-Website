@@ -54,3 +54,4 @@ Disallow: /admin/
 Disallow: /api/
 
 Sitemap: https://credsey.com/sitemap.xml
+Sitemap: https://credsey.com/feed.xml

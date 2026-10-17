@@ -178,10 +178,13 @@
   }
   function editPost(v, id) {
     var isNew = id === "new";
-    (isNew ? Promise.resolve({ title: "", slug: "", description: "", cover: "", body: "", status: "draft", author: me.name || "Credsey team" }) : api("/posts/" + id)).then(function (p) {
+    (isNew ? Promise.resolve({ title: "", slug: "", description: "", cover: "", body: "", status: "draft", keyword: "", author: me.name || "Credsey team" }) : api("/posts/" + id)).then(function (p) {
       v.innerHTML = '<div class="top"><div><a href="#blog">← All guides</a><h1>' + (isNew ? "New guide" : "Edit guide") + '</h1></div><div class="row">' + (isNew ? "" : '<a class="btn line" target="_blank" rel="noopener" href="/blog/' + esc(p.slug) + '/?preview=1">Preview</a>') + '<button class="btn line" id="psave">Save draft</button><button class="btn gold" id="ppub">' + (p.status === "published" ? "Update" : "Publish") + "</button></div></div>" +
         '<div class="editor-grid"><div class="fields"><label>Title<input id="ptitle" value="' + esc(p.title) + '" maxlength="200"></label><div id="pbody"></div></div>' +
-        '<div class="fields"><div class="f"><label>URL slug<input id="pslug" value="' + esc(p.slug) + '" placeholder="auto from title"></label><p class="hint">credsey.com/blog/<span id="slugprev">' + esc(p.slug) + "</span>/</p></div>" +
+        '<div class="fields"><div class="f seo-box"><label>Focus keyword<input id="pkw" value="' + esc(p.keyword || "") + '" placeholder="e.g. personal loan for salaried" maxlength="80"></label>' +
+        '<p class="hint">The exact phrase people type into Google. <button type="button" class="linkbtn" id="kwbtn">See what people search →</button></p><div id="kwout"></div>' +
+        '<h3 class="seo-h">SEO checklist <span id="seoscore"></span></h3><ul class="seo-list" id="seolist"></ul></div>' +
+        '<div class="f"><label>URL slug<input id="pslug" value="' + esc(p.slug) + '" placeholder="auto from title"></label><p class="hint">credsey.com/blog/<span id="slugprev">' + esc(p.slug) + "</span>/</p></div>" +
         '<div class="f"><label>Meta description <span class="count" id="dcount"></span><textarea id="pdesc" maxlength="320">' + esc(p.description) + '</textarea></label><p class="hint">Shown in Google results. Aim for 140–160 characters.</p></div>' +
         '<div class="f"><label>Cover image</label><div class="cover" id="pcover" style="' + (p.cover ? "background-image:url(" + esc(p.cover) + ")" : "") + '">' + (p.cover ? "" : "No image") + '</div><div class="row" style="margin-top:8px"><button class="btn line sm" id="pcoverbtn">Upload image</button><button class="btn line sm" id="pcoverx">Remove</button></div></div>' +
         '<div class="f"><label>Author<input id="pauthor" value="' + esc(p.author) + '"></label></div>' +
@@ -197,12 +200,52 @@
       $("#pcoverbtn").onclick = function () { pickImage().then(upload).then(function (u) { cover = u; $("#pcover").style.backgroundImage = "url(" + u + ")"; $("#pcover").textContent = ""; }).catch(function (e) { toast(e.message, true); }); };
       $("#pcoverx").onclick = function () { cover = ""; $("#pcover").style.backgroundImage = ""; $("#pcover").textContent = "No image"; };
       var save = function (status) {
-        var body = { title: $("#ptitle").value.trim(), slug: $("#pslug").value.trim(), description: $("#pdesc").value.trim(), cover: cover, body: q.root.innerHTML, author: $("#pauthor").value.trim(), status: status };
+        var body = { title: $("#ptitle").value.trim(), slug: $("#pslug").value.trim(), description: $("#pdesc").value.trim(), keyword: $("#pkw").value.trim(), cover: cover, body: q.root.innerHTML, author: $("#pauthor").value.trim(), status: status };
         if (!body.title) return toast("Add a title first", true);
         api(isNew ? "/posts" : "/posts/" + id, { method: isNew ? "POST" : "PUT", body: body }).then(function (r) {
-          toast(status === "published" ? "Published — live on the website" : "Draft saved");
+          toast(status === "published" ? "Published — live, added to the sitemap and sent to search engines" : "Draft saved");
           location.hash = "#blog/" + (r.id || id); if (!isNew) route();
         }).catch(function (e) { toast(e.message, true); });
+      };
+      /* SEO assistant: live checklist + real Google searches grouped by intent */
+      var seo = function () {
+        var kw = $("#pkw").value.trim().toLowerCase(), t = $("#ptitle").value.trim(), d = $("#pdesc").value.trim(), sl = slugify($("#pslug").value || t);
+        var txt = q.getText().toLowerCase(), words = txt.split(/\s+/).filter(Boolean).length, html = q.root.innerHTML;
+        var first = txt.slice(0, 600), h2 = (html.match(/<h2/g) || []).length, qs = (html.match(/<h[23][^>]*>[^<]*\?\s*<\/h[23]>/g) || []).length;
+        var links = (html.match(/href="(https?:\/\/(www\.)?credsey\.com)?\//g) || []).length;
+        var has = function (s) { return kw && s.toLowerCase().indexOf(kw) > -1; };
+        var checks = [
+          [!!kw, "Focus keyword chosen"],
+          [has(t), "Keyword in the title"],
+          [t.length >= 30 && t.length <= 65, "Title is 30–65 characters (" + t.length + ")"],
+          [has(d), "Keyword in the meta description"],
+          [d.length >= 120 && d.length <= 160, "Meta description is 120–160 characters (" + d.length + ")"],
+          [kw && sl.indexOf(slugify(kw)) > -1, "Keyword in the URL slug"],
+          [has(first), "Keyword in the first paragraph"],
+          [words >= 800, "At least 800 words (" + words + ")"],
+          [h2 >= 3, "3+ section headings (H2) (" + h2 + ")"],
+          [qs >= 2, "2+ question headings, e.g. \"How much can I borrow?\" (shows as FAQ in Google)"],
+          [links >= 1, "Links to a Credsey page (product or calculator)"],
+          [!!cover, "Cover image added"]
+        ];
+        var ok = checks.filter(function (c) { return c[0]; }).length;
+        $("#seoscore").textContent = ok + "/" + checks.length; $("#seoscore").className = ok >= 10 ? "good" : ok >= 7 ? "mid" : "bad";
+        $("#seolist").innerHTML = checks.map(function (c) { return '<li class="' + (c[0] ? "ok" : "no") + '">' + esc(c[1]) + "</li>"; }).join("");
+      };
+      var seoT; var seoLater = function () { clearTimeout(seoT); seoT = setTimeout(seo, 300); };
+      q.on("text-change", seoLater); ["#ptitle", "#pdesc", "#pslug", "#pkw"].forEach(function (s) { $(s).addEventListener("input", seoLater); });
+      $("#pcoverbtn").addEventListener("click", function () { setTimeout(seo, 3000); }); $("#pcoverx").addEventListener("click", seoLater);
+      seo();
+      $("#kwbtn").onclick = function () {
+        var topic = $("#pkw").value.trim() || $("#ptitle").value.trim();
+        if (topic.length < 3) return toast("Type a topic or keyword first", true);
+        $("#kwout").innerHTML = '<p class="hint">Checking Google…</p>';
+        api("/posts/keywords?q=" + encodeURIComponent(topic)).then(function (r) {
+          if (!r.groups.length) { $("#kwout").innerHTML = '<p class="hint">No searches found. Try a shorter phrase like "gold loan".</p>'; return; }
+          $("#kwout").innerHTML = '<p class="hint">Real Google searches in India. Click one to use it as your focus keyword; answer the others as headings in your guide.</p>' +
+            r.groups.map(function (g) { return '<div class="kw-g"><b>' + esc(g.name) + "</b><div>" + g.items.map(function (k) { return '<button type="button" class="kw">' + esc(k) + "</button>"; }).join("") + "</div></div>"; }).join("");
+          $$("#kwout .kw").forEach(function (b) { b.onclick = function () { $("#pkw").value = b.textContent; seo(); toast("Focus keyword set"); }; });
+        }).catch(function (e) { $("#kwout").innerHTML = '<p class="hint">' + esc(e.message) + "</p>"; });
       };
       $("#psave").onclick = function () { save("draft"); };
       $("#ppub").onclick = function () { save("published"); };
