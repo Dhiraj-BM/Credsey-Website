@@ -1,5 +1,6 @@
 # Credsey site content. Edit here, then run tools/build.py.
 SITE = "https://credsey.com"
+INDEXNOW_KEY = "c7e3f1a94b2d4e6f8a0b1c2d3e4f5a6b"
 BRAND = "Credsey Financial Services"
 TAGLINE = "Credit for a brighter tomorrow"
 PHONE = "+91 88818 52331"
@@ -40,7 +41,7 @@ PRODUCTS = [
        ("Is collateral required?", "Unsecured business loans are available up to ₹75 lakh with many lenders. Larger amounts may need property or other security."),
        ("What can I use the loan for?", "Working capital, inventory, machinery, expansion, renovation or any legitimate business purpose.")]),
  dict(slug="home-loan", key="home", name="Home Loan", icon="house", img="home-loan",
-  title="Home Loan at Low Interest Rates – Compare & Apply Online",
+  title="Home Loan at Low Interest – Compare & Apply Online",
   desc="Compare home loan interest rates from leading banks and housing finance companies. Up to 90% funding, tenure up to 30 years and doorstep support from Credsey.",
   h1="The keys to your own home, sooner",
   lead="Buy, build or renovate with home loans at competitive rates, up to 90% of the property value and tenures of up to 30 years.",
@@ -76,7 +77,7 @@ PRODUCTS = [
        ("Is my gold safe?", "Lenders store pledged gold in sealed, insured, bank-grade vaults and return it after full repayment."),
        ("Does a gold loan affect my credit score?", "Timely repayment helps your score; missed payments are reported like any other loan.")]),
  dict(slug="car-loan", key="car", name="Car Loan", icon="car", img="car-loan",
-  title="Car Loan for New & Used Cars – Up to 100% On-Road Funding",
+  title="Car Loan – New & Used Cars, up to 100% Funding",
   desc="Drive home your new or used car with a car loan from leading lenders via Credsey. Up to 100% on-road funding, quick approval and tenures up to 7 years.",
   h1="Drive home the car you've been eyeing",
   lead="New or pre-owned, hatchback or SUV — finance up to 100% of the on-road price with quick approvals and easy EMIs.",
@@ -88,7 +89,7 @@ PRODUCTS = [
        ("Do you finance used cars?", "Yes, cars up to 10 years old at loan maturity can be financed by select lenders."),
        ("Is there a prepayment charge?", "Charges vary by lender, from nil on floating-rate loans to 3–5% on fixed-rate loans.")]),
  dict(slug="education-loan", key="education", name="Education Loan", icon="cap", img="education-loan",
-  title="Education Loan for India & Abroad – Collateral-Free Options",
+  title="Education Loan for Studies in India & Abroad",
   desc="Fund higher studies in India or abroad with an education loan. Covers tuition, living and travel costs with moratorium and tax benefits under Section 80E.",
   h1="Invest in the degree that changes everything",
   lead="Cover tuition, living and travel costs for studies in India or overseas, with repayment that starts after the course ends.",

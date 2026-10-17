@@ -45,9 +45,12 @@ function orgSchema(C) {
   const social = ["instagram", "facebook", "linkedin", "youtube"].map((k) => val(C, "settings." + k)).filter(Boolean);
   const o = { "@context": "https://schema.org", "@type": "FinancialService", "@id": SITE + "/#org", name: "Credsey Financial Services", alternateName: "Credsey",
     slogan: "Credit for a brighter tomorrow", url: SITE + "/", logo: SITE + "/img/credsey-logo.png", image: SITE + "/img/og-cover.jpg",
-    address: { "@type": "PostalAddress", addressLocality: val(C, "settings.address"), addressCountry: "IN" }, areaServed: "IN", sameAs: social };
-  if (val(C, "settings.email")) o.email = val(C, "settings.email");
-  if (val(C, "settings.phone")) o.telephone = val(C, "settings.phone");
+    address: { "@type": "PostalAddress", addressLocality: val(C, "settings.address"), addressCountry: "IN" }, areaServed: { "@type": "Country", name: "India" }, sameAs: social,
+    priceRange: "Free advice", knowsAbout: Object.values(PRODUCTS).concat(["EMI calculation", "CIBIL credit score", "Loan eligibility"]) };
+  const cp = { "@type": "ContactPoint", contactType: "customer service", areaServed: "IN", availableLanguage: ["English", "Hindi"] };
+  if (val(C, "settings.email")) o.email = cp.email = val(C, "settings.email");
+  if (val(C, "settings.phone")) o.telephone = cp.telephone = val(C, "settings.phone");
+  o.contactPoint = [cp];
   return o;
 }
 
@@ -108,10 +111,13 @@ function rewriter(C, ctx) {
     });
 }
 
+let postCache = { at: 0, rows: null };
 async function latestPosts(env, n = 3) {
+  if (postCache.rows && Date.now() - postCache.at < 60000) return postCache.rows;
   try {
     const r = await env.DB.prepare("SELECT slug,title,description,cover,body,published_at FROM posts WHERE status='published' ORDER BY published_at DESC LIMIT ?").bind(n).all();
-    return r.results || [];
+    postCache = { at: Date.now(), rows: r.results || [] };
+    return postCache.rows;
   } catch { return []; }
 }
 
@@ -123,6 +129,7 @@ async function withContent(res, env, url) {
   const out = rewriter(C, ctx).transform(res);
   const h = new Headers(out.headers);
   h.set("cache-control", "public, max-age=0, must-revalidate");
+  if (url.hostname.endsWith(".workers.dev")) h.set("x-robots-tag", "noindex"); // only credsey.com should rank
   return new Response(out.body, { status: out.status, headers: h });
 }
 
@@ -402,6 +409,7 @@ async function admin(req, env, url) {
       } catch (e) {
         return json({ error: String(e).includes("UNIQUE") ? "Another guide already uses this URL slug" : "Could not save" }, 400);
       }
+      postCache.rows = null;
       return json({ ok: true, id, slug });
     }
     if (id && m === "DELETE") {

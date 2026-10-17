@@ -1,0 +1,42 @@
+# Credsey Financial Services
+
+> Credsey Financial Services (Credsey) is an India-based loan advisory and facilitation service. We help individuals and businesses compare and apply for loans from banks and NBFCs, with free advice from application to disbursal. Credsey is not a lender; loans are sanctioned by partner lenders.
+
+- Website: https://credsey.com
+- Phone / WhatsApp: +91 88818 52331
+- Email: info@credsey.com
+- Service area: India
+- Tagline: Credit for a brighter tomorrow
+
+## Loan products
+
+- [Personal Loan](https://credsey.com/personal-loan/): Apply for a personal loan online with Credsey. Compare offers from top banks and NBFCs, check eligibility in 2 minutes and get funds in as little as 24 hours. Rates from p.a.: 10.49%*; Loan up to: ₹50 L; Tenure up to: 7 yrs
+- [Business Loan](https://credsey.com/business-loan/): Unsecured business loans and working capital for MSMEs, traders and self-employed professionals. Compare lenders, check eligibility and apply online with Credsey. Rates from p.a.: 14%*; Loan up to: ₹1 Cr; Tenure up to: 5 yrs
+- [Home Loan](https://credsey.com/home-loan/): Compare home loan interest rates from leading banks and housing finance companies. Up to 90% funding, tenure up to 30 years and doorstep support from Credsey. Rates from p.a.: 7.40%*; Funding up to: 90%; Tenure up to: 30 yrs
+- [Loan Against Property](https://credsey.com/loan-against-property/): Unlock the value of your residential or commercial property with a loan against property from Credsey. Lower rates than unsecured loans, tenure up to 20 years. Rates from p.a.: 8.75%*; Loan up to: ₹5 Cr; Tenure up to: 20 yrs
+- [Gold Loan](https://credsey.com/gold-loan/): Get an instant gold loan with minimal documents and safe storage. Compare gold loan rates per gram and apply with Credsey for same-day disbursal. Rates from p.a.: 8.75%*; LTV up to: 75%; Disbursal from: 30 min*
+- [Car Loan](https://credsey.com/car-loan/): Drive home your new or used car with a car loan from leading lenders via Credsey. Up to 100% on-road funding, quick approval and tenures up to 7 years. Rates from p.a.: 8.50%*; On-road funding: 100%; Tenure up to: 7 yrs
+- [Education Loan](https://credsey.com/education-loan/): Fund higher studies in India or abroad with an education loan. Covers tuition, living and travel costs with moratorium and tax benefits under Section 80E. Rates from p.a.: 8.50%*; Loan up to: ₹1.5 Cr; Tenure up to: 15 yrs
+- [Balance Transfer](https://credsey.com/balance-transfer/): Move your existing home, personal or business loan to a lender with a lower interest rate. Calculate your savings and get a top-up with Credsey. Typical rate cut: 0.5–3%; Extra funds: Top-up; Switch in: 7 days*
+- [Credit Cards](https://credsey.com/credit-cards/): Find the right credit card for cashback, travel, fuel or shopping. Compare lifetime-free and premium cards from top banks and apply online with Credsey. Free options: Lifetime; Cashback: Up to 10%; Access cards: Lounge
+
+## Tools
+
+- [EMI calculator](https://credsey.com/emi-calculator/): monthly EMI, total interest and year-by-year repayment schedule.
+- [Loan calculators](https://credsey.com/calculators/): eligibility, balance-transfer savings, prepayment and home affordability.
+- [Free credit score help](https://credsey.com/credit-score/)
+- [Apply / check eligibility](https://credsey.com/apply/)
+
+## Guides
+
+- [All money guides](https://credsey.com/blog/)
+- [How to Improve Your CIBIL Score: 8 Steps That Actually Work](https://credsey.com/blog/how-to-improve-cibil-score/)
+- [Personal Loan vs Credit Card: Which Is Cheaper for Big Expenses?](https://credsey.com/blog/personal-loan-vs-credit-card/)
+- [Home Loan Documents Checklist for Salaried & Self-Employed](https://credsey.com/blog/home-loan-documents-checklist/)
+
+## Company
+
+- [About](https://credsey.com/about/)
+- [Contact](https://credsey.com/contact/)
+- [Disclaimer](https://credsey.com/disclaimer/)
+- [Grievance redressal](https://credsey.com/grievance-redressal/)

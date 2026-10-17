@@ -11,7 +11,9 @@ from data import *
 
 ROOT = Path(__file__).resolve().parent.parent / "site"
 WORKER = Path(__file__).resolve().parent.parent / "worker"
-VER = "7"
+VER = "9"
+# Fonts + stylesheet are inlined into every page: no render-blocking requests on first paint.
+INLINE_CSS = (ROOT / "assets/fonts/fonts.css").read_text(encoding="utf-8") + (ROOT / "assets/css/style.css").read_text(encoding="utf-8")
 esc = html.escape
 
 ICONS = {
@@ -111,7 +113,9 @@ def org_schema():
             "alternateName": "Credsey", "slogan": TAGLINE, "url": SITE + "/", "logo": SITE + "/img/credsey-logo.png",
             "image": SITE + "/img/og-cover.jpg", **({"email": EMAIL} if EMAIL else {}), **({"telephone": PHONE} if PHONE else {}),
             "address": {"@type": "PostalAddress", "addressLocality": ADDRESS, "addressCountry": "IN"},
-            "areaServed": "IN", "sameAs": [v for v in SOCIAL.values() if v]}
+            "areaServed": {"@type": "Country", "name": "India"}, "sameAs": [v for v in SOCIAL.values() if v],
+            "priceRange": "Free advice", "knowsAbout": [p["name"] for p in PRODUCTS] + ["EMI calculation", "CIBIL credit score", "Loan eligibility"],
+            "contactPoint": [{"@type": "ContactPoint", "contactType": "customer service", "areaServed": "IN", "availableLanguage": ["English", "Hindi"], **({"telephone": PHONE} if PHONE else {}), **({"email": EMAIL} if EMAIL else {})}]}
 
 def faq_schema(faqs):
     return {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
@@ -159,10 +163,10 @@ def footer():
 <footer class="ftr"><div class="wrap">
 <div class="ftr-grid">
 <div class="ftr-brand"><img src="/img/credsey-logo-white.png" alt="{BRAND}" width="900" height="448" loading="lazy">{T("p", "footer.about", "Credsey helps individuals and businesses across India find, compare and secure the right loan — with honest advice from application to disbursal.", "Footer about text", G)}<div class="social">{soc}</div></div>
-<div><h4>Loans</h4><ul>{col([(p["name"], "/" + p["slug"] + "/") for p in LOANS[:6]])}</ul></div>
-<div><h4>More</h4><ul>{col([("Education Loan", "/education-loan/"), ("Balance Transfer", "/balance-transfer/"), ("Credit Cards", "/credit-cards/"), ("Credit Score", "/credit-score/"), ("EMI Calculator", "/emi-calculator/"), ("All Calculators", "/calculators/")])}</ul></div>
-<div><h4>Company</h4><ul>{col([("About us", "/about/"), ("Guides", "/blog/"), ("Contact", "/contact/"), ("Grievance redressal", "/grievance-redressal/"), ("Privacy policy", "/privacy-policy/"), ("Terms of use", "/terms/")])}</ul></div>
-<div><h4>Talk to us</h4><ul class="contact">
+<div><h3>Loans</h3><ul>{col([(p["name"], "/" + p["slug"] + "/") for p in LOANS[:6]])}</ul></div>
+<div><h3>More</h3><ul>{col([("Education Loan", "/education-loan/"), ("Balance Transfer", "/balance-transfer/"), ("Credit Cards", "/credit-cards/"), ("Credit Score", "/credit-score/"), ("EMI Calculator", "/emi-calculator/"), ("All Calculators", "/calculators/")])}</ul></div>
+<div><h3>Company</h3><ul>{col([("About us", "/about/"), ("Guides", "/blog/"), ("Contact", "/contact/"), ("Grievance redressal", "/grievance-redressal/"), ("Privacy policy", "/privacy-policy/"), ("Terms of use", "/terms/")])}</ul></div>
+<div><h3>Talk to us</h3><ul class="contact">
 <li{S("settings.phone")}>{ico("phone")}<a href="{tel_href()}" data-cms-href="tel" data-cms="settings.phone">{esc(PHONE)}</a></li>
 <li{S("settings.email")}{" hidden" if not EMAIL else ""}>{ico("mail")}<a href="mailto:{EMAIL}" data-cms-href="mailto" data-cms="settings.email">{esc(EMAIL)}</a></li>
 <li{S("settings.address")}>{ico("pin")}<span data-cms="settings.address">{esc(ADDRESS)}</span></li>
@@ -188,15 +192,16 @@ def head(path, title, desc, schema, og_img, robots):
     return f'''<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title{tk}>{esc(full) if "{{" not in full else full}</title>
 <meta name="description" content="{esc(desc) if "{{" not in desc else desc}"{dk}>
-<link rel="canonical" href="{url}"><meta name="robots" content="{robots}">
+<link rel="canonical" href="{url}"><meta name="robots" content="{robots}{",max-image-preview:large,max-snippet:-1" if robots.startswith("index") else ""}">
+<link rel="alternate" hreflang="en-IN" href="{url}"><link rel="alternate" hreflang="x-default" href="{url}">
+<meta name="geo.region" content="IN"><meta name="geo.placename" content="India">
 <meta name="theme-color" content="#071A3E">
 <meta property="og:type" content="website"><meta property="og:site_name" content="{BRAND}"><meta property="og:locale" content="en_IN">
 <meta property="og:title" content="{esc(full) if "{{" not in full else full}"{f' data-cms="{sk}.title" data-cms-attr="content"' if tk else ""}><meta property="og:description" content="{esc(desc) if "{{" not in desc else desc}"{dk}><meta property="og:url" content="{url}">
 <meta property="og:image" content="{og_img if og_img.startswith(("http", "{{")) else SITE + "/img/" + og_img}"><meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/img/icon-192.png"><link rel="apple-touch-icon" href="/img/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="/assets/css/style.css?v={VER}">
+<link rel="preload" href="/assets/fonts/poppins-700.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/assets/fonts/poppins-600.woff2" as="font" type="font/woff2" crossorigin>
+<style>{INLINE_CSS}</style>
 {ld}'''
 
 def ld_tag(s):
@@ -306,14 +311,14 @@ def home():
     body = f'''
 <section class="hero" aria-labelledby="hero-h">{swoosh()}
 <div class="wrap hero-grid">
-<div class="rv">
+<div>
 {T("h1", "home.hero.title", "Credit for a *brighter* tomorrow.", "Hero headline", G, attrs='id="hero-h"', hl="gold-text")}
 {T("p", "home.hero.lead", "Compare personal, home, business and gold loan offers from India's leading banks and NBFCs. Check your eligibility in two minutes — free, and with no impact on your credit score.", "Hero text", G, cls="hero-lead")}
 <div class="hero-ctas"><a class="btn btn-gold" href="/apply/">Check my eligibility {ico("arrow")}</a><a class="btn btn-ghost" href="#loans">Explore loans</a></div>
 {L("ul", "home.hero.ticks", ["No upfront fees", "100% digital process", "Disbursal in 24 hrs*"], "Hero tick points", G, cls="ticks")}
-<div class="hero-people"><img src="/img/hero-family.webp" alt="Happy Indian family" width="1400" height="933"><p>{T("strong", "home.hero.note.title", "Personal advice, start to finish.", "Hero note title", G)}<br>{T("span", "home.hero.note.text", "One dedicated advisor handles your file from first call to disbursal.", "Hero note text", G)}</p></div>
+<div class="hero-people"><img src="/img/hero-family-thumb.webp" alt="Happy Indian family" width="264" height="128"><p>{T("strong", "home.hero.note.title", "Personal advice, start to finish.", "Hero note title", G)}<br>{T("span", "home.hero.note.text", "One dedicated advisor handles your file from first call to disbursal.", "Hero note text", G)}</p></div>
 </div>
-<div class="rv">{calc_widget("personal", heading="EMI calculator")}</div>
+<div>{calc_widget("personal", heading="EMI calculator")}</div>
 </div></section>
 
 <div class="wrap rail-wrap"><nav class="rail rv" aria-label="Loan products">{rail}</nav></div>
@@ -365,8 +370,8 @@ def home():
 <div class="guides rv" data-cms-posts="home">{guide_card(ARTICLES[0], big=True)}<div class="guide-stack">{guide_card(ARTICLES[1])}{guide_card(ARTICLES[2])}</div></div>
 </div></section>
 {faq_block("home.faq", G, faqs)}'''
-    page("/", "Credsey – Personal, Home & Business Loans Online | Compare & Apply",
-         "Compare personal, home, business, gold and car loan offers from top banks and NBFCs. Free EMI calculator, eligibility check and expert advice — Credsey Financial Services.",
+    page("/", "Credsey: Personal, Home & Business Loans in India",
+         "Compare personal, home, business, gold and car loans from top banks and NBFCs. Free EMI calculator, eligibility check and expert advice from Credsey.",
          body, schema=[faq_ld("home.faq", faqs), {"@context": "https://schema.org", "@type": "WebSite", "name": BRAND, "url": SITE + "/"}])
 
 def shell():

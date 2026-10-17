@@ -1,3 +1,6 @@
+/* Metric-matched fallbacks: text keeps its size when the web fonts arrive (no layout shift). */
+@font-face{font-family:"Poppins Fallback";src:local("Arial");ascent-override:93.62%;descent-override:31.21%;line-gap-override:8.92%;size-adjust:112.16%}
+@font-face{font-family:"Inter Fallback";src:local("Arial");ascent-override:90.49%;descent-override:22.56%;line-gap-override:0%;size-adjust:107.06%}
 /* Credsey Financial Services — design system
    Palette drawn from the logo: deep navy, royal blue, brushed gold. */
 :root{
@@ -8,7 +11,7 @@
   --r-sm:10px; --r:16px; --r-lg:28px;
   --shadow:0 1px 2px rgba(7,26,62,.06),0 12px 32px -12px rgba(7,26,62,.18);
   --shadow-lg:0 30px 70px -24px rgba(4,16,42,.45);
-  --ff-head:"Poppins",system-ui,sans-serif; --ff-body:"Inter",system-ui,sans-serif;
+  --ff-head:"Poppins","Poppins Fallback",system-ui,sans-serif; --ff-body:"Inter","Inter Fallback",system-ui,sans-serif;
   --wrap:1200px; --ease:cubic-bezier(.2,.7,.2,1);
 }
 *,*::before,*::after{box-sizing:border-box}
@@ -194,7 +197,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .lenders p{text-align:center;color:var(--muted);font:500 1rem var(--ff-head);margin-bottom:28px}
 .marquee{display:flex;width:max-content;animation:marq 40s linear infinite}
 .marquee:hover{animation-play-state:paused}
-.marquee span{font:700 clamp(1.3rem,2vw,1.7rem) var(--ff-head);color:#A4B1C6;padding:0 clamp(24px,3vw,44px);letter-spacing:-.01em;white-space:nowrap;transition:color .2s}
+.marquee span{font:700 clamp(1.3rem,2vw,1.7rem) var(--ff-head);color:#5E6E88;padding:0 clamp(24px,3vw,44px);letter-spacing:-.01em;white-space:nowrap;transition:color .2s}
 .marquee span:hover{color:var(--navy)}
 @keyframes marq{to{transform:translateX(-50%)}}
 
@@ -248,7 +251,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .ftr a:hover{color:var(--gold-2)}
 .ftr-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1.2fr;gap:40px;padding-bottom:56px}
 .ftr-brand img{height:64px;width:auto;margin-bottom:18px}
-.ftr h4{color:#fff;font-size:1rem;margin-bottom:16px}
+.ftr h3{color:#fff;font-size:1rem;margin-bottom:16px}
 .ftr ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
 .ftr .contact li{display:flex;gap:10px;align-items:flex-start}
 .ftr .contact .ico{width:18px;height:18px;color:var(--gold-2);margin-top:3px}
@@ -346,11 +349,11 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .callout{background:var(--ivory);border-left:3px solid var(--gold);padding:20px 24px;border-radius:0 12px 12px 0;margin:28px 0}
 
 /* Reveal */
-.rv{opacity:0;transform:translateY(24px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
-.rv.in{opacity:1;transform:none}
-.no-js .rv{opacity:1;transform:none}
+.rv{transform:translateY(28px);transition:transform .8s var(--ease)}
+.rv.in{transform:none}
+.no-js .rv{transform:none}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.rv{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.rv{transform:none}}
 
 /* Responsive */
 @media (max-width:1100px){

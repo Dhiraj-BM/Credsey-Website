@@ -8,9 +8,9 @@ TODAY = date.today().isoformat()
 def page_hero(trail, h1, lead, img=None, facts=None, ctas=""):
     cr = "".join(f'<li><a href="{u}">{n}</a></li>' if i < len(trail) - 1 else f'<li aria-current="page">{n}</li>' for i, (n, u) in enumerate(trail))
     fx = "".join(f'<div><b>{v}</b><span>{l}</span></div>' for v, l in (facts or []))
-    media = f'<div class="ph-img rv"><img src="/img/{img}.webp" alt="" width="1400" height="933" fetchpriority="high"></div>' if img else ""
+    media = f'<div class="ph-img"><img src="/img/{img}.webp" alt="" width="1400" height="933" fetchpriority="high"></div>' if img else ""
     return f'''<section class="page-hero">{swoosh()}<div class="wrap {"ph-grid" if img else ""}">
-<div class="rv"><ol class="crumbs">{cr}</ol><h1>{h1}</h1><p class="hero-lead">{lead}</p>{ctas}{f'<div class="facts">{fx}</div>' if fx else ""}</div>{media}</div></section>'''
+<div><ol class="crumbs">{cr}</ol><h1>{h1}</h1><p class="hero-lead">{lead}</p>{ctas}{f'<div class="facts">{fx}</div>' if fx else ""}</div>{media}</div></section>'''
 
 def home_trail(*rest): return [("Home", "/"), *rest]
 
@@ -28,6 +28,18 @@ def lead_form(product="", compact=False, source="contact"):
 <p class="form-msg" role="status"></p></form>'''
 
 # ---------- product pages ----------
+def loan_props(p):
+    """Machine-readable rate/amount/term for AI and rich results, parsed from the product facts."""
+    import re as _re
+    out = {"currency": "INR"}
+    for v, label in p["facts"]:
+        num = _re.sub(r"[^0-9.]", "", v.split("–")[0]) if any(c.isdigit() for c in v) else ""
+        if not num: continue
+        if "Rates from" in label: out["interestRate"] = {"@type": "QuantitativeValue", "minValue": float(num), "unitText": "percent per annum"}
+        elif "Loan up to" in label: out["amount"] = {"@type": "MonetaryAmount", "currency": "INR", "maxValue": float(num) * (1e7 if "Cr" in v else 1e5 if "L" in v else 1)}
+        elif "Tenure up to" in label: out["loanTerm"] = {"@type": "QuantitativeValue", "maxValue": float(num), "unitCode": "ANN"}
+    return out
+
 def product_page(p):
     trail = home_trail((p["name"], f'/{p["slug"]}/'))
     ctas = f'<div class="hero-ctas"><a class="btn btn-gold" href="/apply/?product={p["key"]}">Check eligibility {ico("arrow")}</a><a class="btn btn-ghost" href="#calc">Calculate EMI</a></div>'
@@ -43,9 +55,9 @@ def product_page(p):
     elif p["key"] == "bt":
         calc = f'<section class="sec steps-sec" id="calc"><div class="wrap">{bt_calc()}</div></section>'
     hero = f'''<section class="page-hero">{swoosh()}<div class="wrap ph-grid">
-<div class="rv"><ol class="crumbs"><li><a href="/">Home</a></li><li aria-current="page">{p["name"]}</li></ol>{T("h1", f"product.{k}.h1", p["h1"], "Page heading", G)}{T("p", f"product.{k}.lead", p["lead"], "Intro text", G, cls="hero-lead")}{ctas}
+<div><ol class="crumbs"><li><a href="/">Home</a></li><li aria-current="page">{p["name"]}</li></ol>{T("h1", f"product.{k}.h1", p["h1"], "Page heading", G)}{T("p", f"product.{k}.lead", p["lead"], "Intro text", G, cls="hero-lead")}{ctas}
 <div class="facts">{fact_spans(p, "div")}</div></div>
-<div class="ph-img rv"><img src="/img/{p["img"]}.webp" alt="{p["name"]} — Credsey" width="1400" height="933" fetchpriority="high"></div></div></section>'''
+<div class="ph-img"><img src="/img/{p["img"]}.webp" alt="{p["name"]} — Credsey" width="1400" height="933" fetchpriority="high"></div></div></section>'''
     body = hero + f'''
 <section class="sec" aria-labelledby="feat-h"><div class="wrap split">
 <div class="rv"><h2 id="feat-h">Why take your {p["name"].lower()} through Credsey</h2>{T("p", f"product.{k}.desc", p["desc"], "Why-us paragraph", G, attrs='style="font-size:1.08rem;color:var(--muted)"')}</div>
@@ -59,7 +71,7 @@ def product_page(p):
 {faq_block(f"product.{k}.faq", G, p["faq"], heading=f'{p["name"]} FAQs')}'''
     schema = [faq_ld(f"product.{k}.faq", p["faq"]), crumbs_schema(trail),
               {"@context": "https://schema.org", "@type": "FinancialProduct" if p["key"] == "cards" else "LoanOrCredit", "name": p["name"], "description": p["desc"],
-               "provider": {"@id": SITE + "/#org"}, "areaServed": "IN", "url": f'{SITE}/{p["slug"]}/'}]
+               "provider": {"@id": SITE + "/#org"}, "areaServed": "IN", "url": f'{SITE}/{p["slug"]}/', **loan_props(p)}]
     page(f'/{p["slug"]}/', p["title"], p["desc"], body, schema=schema)
 
 def field(f, label, unit="", money=False, v=0, lo=0, hi=100, step=1):
@@ -92,7 +104,7 @@ def calculators_page():
 {field("inc", "Household monthly income", "", True, 150000, 25000, 2000000, 5000)}{field("dp", "Down payment saved", "", True, 1500000, 0, 50000000, 50000)}{field("rate", "Home loan rate", "%", False, 8.5, 6.5, 14, .05)}{field("ten", "Tenure", "Years", False, 20, 5, 30, 1)}</div>
 {result("Home you can afford", "home", "Property budget", [("Home loan amount", "loan"), ("Monthly EMI (45% of income)", "emi")])}</div></div>
 </div></section>'''
-    page("/calculators/", "Loan Calculators – Eligibility, Balance Transfer, Prepayment & Home Affordability",
+    page("/calculators/", "Loan Calculators: Eligibility, Prepayment & More",
          "Free loan calculators from Credsey: check loan eligibility, balance-transfer savings, prepayment benefit and home affordability in seconds.", body, schema=[crumbs_schema(trail)])
 
 def emi_page():
@@ -110,7 +122,7 @@ def emi_page():
 </div>
 <div class="wrap amort"><h2>Repayment schedule</h2><div class="tbl-wrap"><table class="tbl"><thead><tr><th scope="col">Year</th><th scope="col">Principal paid</th><th scope="col">Interest paid</th><th scope="col">Balance</th></tr></thead><tbody id="amort-body"></tbody></table></div></div></section>
 {faq_block("emi.faq", "EMI calculator page", faqs, heading="EMI questions")}'''
-    page("/emi-calculator/", "EMI Calculator – Personal, Home, Business & Car Loan EMI",
+    page("/emi-calculator/", "EMI Calculator for Home, Personal & Car Loans",
          "Calculate your loan EMI instantly with Credsey's free EMI calculator. See total interest, total payable and a year-by-year amortisation schedule.",
          body, schema=[faq_ld("emi.faq", faqs), crumbs_schema(trail), {"@context": "https://schema.org", "@type": "WebApplication", "name": "Credsey EMI Calculator", "applicationCategory": "FinanceApplication", "operatingSystem": "Any", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"}, "url": SITE + "/emi-calculator/"}])
 
@@ -145,7 +157,7 @@ def apply_page():
 <ol class="steps" style="grid-template-columns:1fr;gap:28px"><li><h3>We review your details</h3><p>An advisor checks your profile against lender criteria.</p></li><li><h3>You get a call with offers</h3><p>Usually within one working day — rates, fees and EMIs explained.</p></li><li><h3>Documents and disbursal</h3><p>Upload online or book a doorstep pickup. The lender disburses directly to your account.</p></li></ol>
 <div class="callout"><strong>Stay safe:</strong> Credsey never asks for money to approve a loan, and never asks for your OTP, PIN or CVV.</div></div>
 </div></section>'''
-    page("/apply/", "Apply for a Loan Online – Check Eligibility in 2 Minutes",
+    page("/apply/", "Apply for a Loan Online – Eligibility in 2 Minutes",
          "Apply online for a personal, home, business, gold or car loan with Credsey. Check eligibility in 2 minutes with no impact on your credit score.", body, schema=[crumbs_schema(trail)])
 
 def credit_score_page():
@@ -250,11 +262,18 @@ LEGAL = {
 <h2>Complaints about a lender</h2><p>If your concern is about a sanction, disbursal, charges or recovery by a bank or NBFC, we will help you escalate it to that lender's grievance officer. If it isn't resolved within 30 days, you can approach the RBI Integrated Ombudsman at <a href="https://cms.rbi.org.in" rel="noopener" target="_blank">cms.rbi.org.in</a>.</p>"""),
 }
 
+LEGAL_DESC = {
+ "privacy-policy": "How Credsey Financial Services collects, uses and protects your personal data when you check eligibility or apply for a loan, in line with India's DPDP Act 2023.",
+ "terms": "Terms of use for credsey.com. Credsey is a loan advisory and facilitation service; credit decisions, rates and fees are set by partner banks and NBFCs.",
+ "disclaimer": "Credsey Financial Services is a loan facilitator, not a lender. Rates and amounts shown are indicative. We never charge upfront fees for loan approval.",
+ "grievance-redressal": "How to raise a complaint with Credsey Financial Services, our response timelines, and how to escalate lender issues to the RBI Integrated Ombudsman.",
+}
+
 def legal_pages():
     for slug, (title, html_) in LEGAL.items():
         t = home_trail((title, f"/{slug}/"))
         body = page_hero(t, title, f"Last updated {date.today().strftime('%d %B %Y')}.") + f'<section class="sec"><div class="wrap">{T("div", f"legal.{slug}", html_, title, "Legal pages", cls="prose", kind="html")}</div></section>'
-        page(f"/{slug}/", title, f"{title} for {BRAND} — credsey.com.", body, schema=[crumbs_schema(t)])
+        page(f"/{slug}/", f"{title} – Credsey Financial Services", LEGAL_DESC[slug], body, schema=[crumbs_schema(t)])
 
 def not_found():
     body = f'''<section class="page-hero" style="text-align:center;padding:120px 0">{swoosh()}<div class="wrap"><h1>Page not found</h1><p class="hero-lead" style="margin-inline:auto">The page you're looking for has moved or doesn't exist.</p>
@@ -281,7 +300,18 @@ def meta_files():
     (B.WORKER / "pages.json").write_text(json.dumps(B.PAGES + ["/blog/"]), encoding="utf-8")
     urls = "".join(f'<url><loc>{SITE}{u}</loc><lastmod>{TODAY}</lastmod><priority>{"1.0" if u == "/" else "0.8" if u.count("/") == 2 and not u.startswith("/blog") else "0.6"}</priority></url>' for u in B.PAGES)
     (B.WORKER / "sitemap-static.xml").write_text(f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n', encoding="utf-8")
-    (B.ROOT / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\nSitemap: {SITE}/sitemap.xml\n", encoding="utf-8")
+    ai = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "PerplexityBot", "Google-Extended", "Applebot-Extended", "Bingbot", "Googlebot"]
+    (B.ROOT / "robots.txt").write_text("User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\n" + "".join(f"User-agent: {a}\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\n" for a in ai) + f"Sitemap: {SITE}/sitemap.xml\n", encoding="utf-8")
+    llms = [f"# {BRAND}", "", f"> {BRAND} (Credsey) is an India-based loan advisory and facilitation service. We help individuals and businesses compare and apply for loans from banks and NBFCs, with free advice from application to disbursal. Credsey is not a lender; loans are sanctioned by partner lenders.", "",
+            f"- Website: {SITE}", f"- Phone / WhatsApp: {PHONE}", f"- Email: {EMAIL}", f"- Service area: India", f"- Tagline: {TAGLINE}", "", "## Loan products", ""]
+    llms += [f"- [{p['name']}]({SITE}/{p['slug']}/): {p['desc']} " + "; ".join(f"{l}: {v}" for v, l in p["facts"]) for p in PRODUCTS]
+    llms += ["", "## Tools", "", f"- [EMI calculator]({SITE}/emi-calculator/): monthly EMI, total interest and year-by-year repayment schedule.",
+             f"- [Loan calculators]({SITE}/calculators/): eligibility, balance-transfer savings, prepayment and home affordability.",
+             f"- [Free credit score help]({SITE}/credit-score/)", f"- [Apply / check eligibility]({SITE}/apply/)", "", "## Guides", "", f"- [All money guides]({SITE}/blog/)"]
+    llms += [f"- [{a['title']}]({SITE}/blog/{a['slug']}/)" for a in ARTICLES]
+    llms += ["", "## Company", "", f"- [About]({SITE}/about/)", f"- [Contact]({SITE}/contact/)", f"- [Disclaimer]({SITE}/disclaimer/)", f"- [Grievance redressal]({SITE}/grievance-redressal/)", ""]
+    (B.ROOT / "llms.txt").write_text("\n".join(llms), encoding="utf-8")
+    (B.ROOT / f"{INDEXNOW_KEY}.txt").write_text(INDEXNOW_KEY, encoding="utf-8")
     (B.ROOT / "site.webmanifest").write_text(json.dumps({"name": BRAND, "short_name": "Credsey", "start_url": "/", "display": "standalone", "background_color": "#ffffff", "theme_color": "#071A3E",
         "icons": [{"src": "/img/icon-192.png", "sizes": "192x192", "type": "image/png"}, {"src": "/img/icon-512.png", "sizes": "512x512", "type": "image/png"}]}), encoding="utf-8")
     (B.ROOT / "_headers").write_text("/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n/img/*\n  Cache-Control: public, max-age=2592000\n/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: SAMEORIGIN\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n", encoding="utf-8")
